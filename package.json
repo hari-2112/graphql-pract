@@ -1,0 +1,26 @@
+{
+  "name": "graphql-pract",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hari-2112/graphql-pract.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/hari-2112/graphql-pract/issues"
+  },
+  "homepage": "https://github.com/hari-2112/graphql-pract#readme",
+  "dependencies": {
+    "@apollo/server": "^5.5.1",
+    "dataloader": "^2.2.3",
+    "graphql": "^16.14.2"
+  }
+}
