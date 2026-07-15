@@ -8,11 +8,13 @@ type Query {
 }
 
 type Mutation {
-  addBook(title: String!, authorId: String!): Book!
-  updateBook(id: String!, title: String!): Book!
+  addBook(title: String!, authorId: ID!): Book!
+  updateBook(id: ID!, title: String!): Book!
+  deleteBook(id: ID!): Book!
 }
 
 type Book {
+  id: ID!
   title: String!
   author: Author!
 }
@@ -80,6 +82,12 @@ function createAuthorLoader() {
   });
 }
 
+function requireAdmin(context) {
+  if (context.user.role !== "ADMIN") {
+    throw new Error("Access denied");
+  }
+}
+
 const resolvers = {
   Query: {
     books: () => books,
@@ -121,6 +129,23 @@ const resolvers = {
 
   return book;
 },
+
+ deleteBook: (_, args, context) => {
+   requireAdmin(context);
+   
+    const index = books.findIndex((b) => b.id === args.id);
+
+    if (index === -1) {
+      throw new Error("Book not found");
+    }
+
+    const deletedBook = books[index];
+
+    books.splice(index, 1);
+
+    return deletedBook;
+  },
+
 },
 
  Book: {
@@ -140,7 +165,14 @@ const { url } = await startStandaloneServer(server, {
 
   context: async () => ({
     authorLoader: createAuthorLoader(),
+
+    user: {
+      id: "1",
+      name: "Hari",
+      role: "USER",
+    },
   }),
 });
+
 
 console.log(`🚀 Server ready at: ${url}`);
