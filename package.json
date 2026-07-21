@@ -5,6 +5,8 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
+    "start": "node index.js",
+    "dev": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -20,7 +22,13 @@
   "homepage": "https://github.com/hari-2112/graphql-pract#readme",
   "dependencies": {
     "@apollo/server": "^5.5.1",
+    "@as-integrations/express5": "^1.1.2",
     "dataloader": "^2.2.3",
-    "graphql": "^16.14.2"
+    "express": "^5.2.1",
+    "graphql": "^16.14.2",
+    "graphql-subscriptions": "^3.0.0",
+    "graphql-ws": "^6.1.0",
+    "jsonwebtoken": "^9.0.3",
+    "ws": "^8.21.1"
   }
 }
