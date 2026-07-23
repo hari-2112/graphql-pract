@@ -6,6 +6,11 @@ import DataLoader from "dataloader";
 import jwt from "jsonwebtoken";
 import { GraphQLScalarType, Kind } from "graphql";
 import { PubSub } from "graphql-subscriptions";
+import { WebSocketServer } from "ws";
+import { useServer } from "graphql-ws/use/ws";
+import { makeExecutableSchema } from "@graphql-tools/schema";
+import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
+
 
 const typeDefs = `#graphql
 
@@ -148,6 +153,7 @@ const users = [
 
 const JWT_SECRET = "mySuperSecretKey";
 const pubsub = new PubSub();
+
 
 function validateTitle(title) {
   if (!title.trim()) {
@@ -346,16 +352,77 @@ Book: {
 }
 };
 
-const server = new ApolloServer({
+const schema = makeExecutableSchema({
   typeDefs,
   resolvers,
 });
 
-await server.start();
-
 const app = express();
 
 const httpServer = http.createServer(app);
+
+const wsServer = new WebSocketServer({
+  server: httpServer,
+  path: "/graphql",
+});
+
+console.log("✅ WebSocket server created");
+
+wsServer.on("headers", () => {
+  console.log("🔥 WebSocket handshake received");
+});
+
+wsServer.on("connection", () => {
+  console.log("✅ WebSocket client connected");
+});
+const serverCleanup = useServer(
+  {
+    schema,
+
+    context: async (ctx) => {
+      const authHeader = ctx.connectionParams?.authorization || "";
+
+      let user = null;
+
+      if (authHeader.startsWith("Bearer ")) {
+        const token = authHeader.substring(7);
+
+        try {
+          user = jwt.verify(token, JWT_SECRET);
+          console.log("WS User:", user);
+        } catch (err) {
+          console.log("WS JWT Error:", err.message);
+        }
+      }
+
+      return {
+        authorLoader: createAuthorLoader(),
+        user,
+      };
+    },
+  },
+  wsServer
+);
+
+const server = new ApolloServer({
+  schema,
+  plugins: [
+    ApolloServerPluginDrainHttpServer({
+      httpServer,
+    }),
+    {
+      async serverWillStart() {
+        return {
+          async drainServer() {
+            await serverCleanup.dispose();
+          },
+        };
+      },
+    },
+  ],
+});
+
+await server.start();
 
 app.use(express.json());
 
