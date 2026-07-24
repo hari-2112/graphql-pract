@@ -1,4 +1,6 @@
 // Paste your Apollo Server GraphQL code here.
+import { ApolloServerPluginLandingPageLocalDefault }
+  from "@apollo/server/plugin/landingPage/default";
 import { ApolloServer } from "@apollo/server";
 import express from "express";
 import http from "http";
@@ -413,6 +415,11 @@ const server = new ApolloServer({
     ApolloServerPluginDrainHttpServer({
       httpServer,
     }),
+
+    ApolloServerPluginLandingPageLocalDefault({
+      embed: true,
+    }),
+
     {
       async serverWillStart() {
         return {
@@ -424,7 +431,6 @@ const server = new ApolloServer({
     },
   ],
 });
-
 await server.start();
 
 app.use(express.json());
