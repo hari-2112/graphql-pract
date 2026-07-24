@@ -462,7 +462,7 @@ app.use(
   })
 );
 
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 5000;
 
 httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`);
