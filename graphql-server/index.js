@@ -435,6 +435,8 @@ await server.start();
 
 app.use(express.json());
 
+app.get("/", (_, res) => res.redirect("/graphql"));
+
 app.use(
   "/graphql",
   expressMiddleware(server, {
