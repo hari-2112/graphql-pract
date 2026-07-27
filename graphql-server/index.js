@@ -5,154 +5,19 @@ import { ApolloServer } from "@apollo/server";
 import express from "express";
 import http from "http";
 import { expressMiddleware } from "@as-integrations/express5";
-import DataLoader from "dataloader";
+import createAuthorLoader from "./loaders/authorLoader.js";
 import jwt from "jsonwebtoken";
-import { GraphQLScalarType, Kind } from "graphql";
+import DateTimeScalar from "./scalars/dateTime.js";
 import { PubSub } from "graphql-subscriptions";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/use/ws";
 import { makeExecutableSchema } from "@graphql-tools/schema";
 import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
-
-
-const typeDefs = `#graphql
-
-scalar DateTime
-
-enum Role {
-  ADMIN
-  USER
-}
-
-type User {
-  id: ID!
-  username: String!
-  role: Role!
-}
-
-type LoginSuccess {
-  token: String!
-  user: User!
-}
-
-type AuthError {
-  message: String!
-}
-union LoginResult = LoginSuccess | AuthError
-
-interface SearchItem {
-  id: ID!
-  title: String!
-}
-
-type Query {
-  books: [Book!]!
-  currentTime: DateTime!
-  search: [SearchItem!]!
-}
-
-input AddBookInput {
-  title: String!
-  authorId: ID!
-}
-
-type Mutation {
-  addBook(input: AddBookInput!): Book!
-  updateBook(id: ID!, title: String!): Book!
-  deleteBook(id: ID!): Book!
-  login(username: String!, password: String!): LoginResult!
-}
-
-type Subscription {
-  bookAdded: Book!
-}
-
-type Book implements SearchItem {
-  id: ID!
-  title: String!
-  author: Author!
-}
-
-type Movie implements SearchItem {
-  id: ID!
-  title: String!
-  duration: Int!
-}
-
-type Author {
-  name: String!
-}
-`;
-
-const books = [
-  {
-    id: "1",
-    title: "Learning GraphQL",
-    authorId: "101",
-  },
-  {
-    id: "2",
-    title: "Apollo Server",
-    authorId: "102",
-  },
-  {
-    id: "3",
-    title: "GraphQL Advanced",
-    authorId: "101",
-  },
-  {
-    id: "4",
-    title: "Federation",
-    authorId: "101",
-  },
-];
-
-const movies = [
-  {
-    id: "201",
-    title: "Inception",
-    duration: 148,
-  },
-  {
-    id: "202",
-    title: "Interstellar",
-    duration: 169,
-  },
-];
-
-const authors = [
-  {
-    id: "101",
-    name: "Hari",
-  },
-  {
-    id: "102",
-    name: "Apollo",
-  },
-  {
-    id: "103",
-    name: "Steve",
-  },
-  {
-    id: "104",
-    name: "GraphQL",
-  },
-];
-
-const users = [
-  {
-    id: "1",
-    username: "admin",
-    password: "admin123",
-    role: "ADMIN",
-  },
-  {
-    id: "2",
-    username: "hari",
-    password: "hari123",
-    role: "USER",
-  },
-];
+import books from "./data/books.js";
+import authors from "./data/authors.js";
+import movies from "./data/movies.js";
+import users from "./data/users.js";
+import typeDefs from "./schema/typeDefs.js";
 
 const JWT_SECRET = "mySuperSecretKey";
 const pubsub = new PubSub();
@@ -164,15 +29,6 @@ function validateTitle(title) {
   }
 }
 
-function createAuthorLoader() {
-  return new DataLoader(async (authorIds) => {
-    console.log("Loading authors:", authorIds);
-
-    return authorIds.map((id) =>
-      authors.find((author) => author.id === id)
-    );
-  });
-}
 
 function requireAdmin(context) {
   if (!context.user) {
@@ -184,47 +40,49 @@ function requireAdmin(context) {
   }
 }
 
-const DateTimeScalar = new GraphQLScalarType({
-  name: "DateTime",
+function buildContext({ req, connectionParams } = {}) {
+  const authHeader =
+    connectionParams?.authorization ||
+    connectionParams?.Authorization ||
+    req?.headers?.authorization ||
+    req?.headers?.Authorization ||
+    "";
 
-  description: "Custom DateTime scalar",
+  let user = null;
 
-  serialize(value) {
-    if (!(value instanceof Date) || isNaN(value.getTime())) {
-      throw new Error("Invalid DateTime");
+  if (authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7);
+
+    try {
+      user = jwt.verify(token, JWT_SECRET);
+      console.log("Decoded User:", user);
+    } catch (err) {
+      console.log("JWT Error:", err.message);
+      user = null;
     }
+  }
 
-    return value.toISOString();
-  },
+  return {
+    authorLoader: createAuthorLoader(),
+    user,
+  };
+}
 
-  parseValue(value) {
-    const date = new Date(value);
 
-    if (isNaN(date.getTime())) {
-      throw new Error("Invalid DateTime");
-    }
 
-    return date;
-  },
-
-  parseLiteral(ast) {
-    if (ast.kind === Kind.STRING) {
-      return new Date(ast.value);
-    }
-    return null;
-  },
-});
 
 const resolvers = {
 
   DateTime: DateTimeScalar,
   Query: {
-    books: () => books,
-    currentTime: () => new Date(),
-    search: () => {
-      return [...books, ...movies];
-    },
+  books: () => books,
+
+  currentTime: () => new Date(),
+
+  search: () => {
+    return [...books, ...movies];
   },
+},
 
  Mutation: {
   addBook: (_, { input }) => {
@@ -314,11 +172,10 @@ const resolvers = {
 },
 
   Subscription: {
-    bookAdded: {
-      subscribe: () =>
-        pubsub.asyncIterableIterator(["BOOK_ADDED"]),
-    },
+  bookAdded: {
+    subscribe: () => pubsub.asyncIterableIterator("BOOK_ADDED"),
   },
+},
 
 SearchItem: {
   __resolveType(obj) {
@@ -366,48 +223,76 @@ const app = express();
 
 const httpServer = http.createServer(app);
 
-const wsServer = new WebSocketServer({
-  server: httpServer,
-  path: "/graphql",
-});
+const requestedPort = Number(process.env.PORT || 5000);
+const fallbackPorts = [requestedPort, requestedPort + 1, requestedPort + 2, 0];
+let serverCleanup = null;
+let websocketSetupComplete = false;
 
-console.log("✅ WebSocket server created");
+const setupWebSocket = () => {
+  if (websocketSetupComplete) {
+    return;
+  }
 
-wsServer.on("headers", () => {
-  console.log("🔥 WebSocket handshake received");
-});
+  websocketSetupComplete = true;
 
-wsServer.on("connection", () => {
-  console.log("✅ WebSocket client connected");
-});
-const serverCleanup = useServer(
-  {
-    schema,
+  const wsServer = new WebSocketServer({
+    server: httpServer,
+    path: "/graphql",
+  });
 
-    context: async (ctx) => {
-      const authHeader = ctx.connectionParams?.authorization || "";
+  console.log("✅ WebSocket server created");
 
-      let user = null;
+  httpServer.on("upgrade", (request, socket, head) => {
+    if (request.url?.startsWith("/graphql")) {
+      console.log("🔥 WebSocket handshake received", {
+        url: request.url,
+        upgrade: request.headers.upgrade,
+        protocol: request.headers["sec-websocket-protocol"],
+      });
+    }
+  });
 
-      if (authHeader.startsWith("Bearer ")) {
-        const token = authHeader.substring(7);
+  wsServer.on("connection", (socket, request) => {
+    console.log("✅ WebSocket client connected", {
+      url: request?.url,
+      protocol: request?.headers["sec-websocket-protocol"],
+      readyState: socket.readyState,
+    });
+  });
 
-        try {
-          user = jwt.verify(token, JWT_SECRET);
-          console.log("WS User:", user);
-        } catch (err) {
-          console.log("WS JWT Error:", err.message);
-        }
-      }
-
-      return {
-        authorLoader: createAuthorLoader(),
-        user,
-      };
+  serverCleanup = useServer(
+    {
+      schema,
+      context: async (ctx) => buildContext({ connectionParams: ctx.connectionParams }),
     },
-  },
-  wsServer
-);
+    wsServer
+  );
+};
+
+const startServer = (attemptIndex = 0) => {
+  const port = fallbackPorts[attemptIndex];
+
+  const onError = (err) => {
+    if (err.code === "EADDRINUSE" && attemptIndex < fallbackPorts.length - 1) {
+      const nextPort = fallbackPorts[attemptIndex + 1];
+      console.warn(`Port ${port} is busy, trying ${nextPort} instead.`);
+      httpServer.removeListener("error", onError);
+      startServer(attemptIndex + 1);
+      return;
+    }
+
+    throw err;
+  };
+
+  httpServer.once("error", onError);
+  httpServer.listen(port, "0.0.0.0", () => {
+    const address = httpServer.address();
+    const actualPort = typeof address === "object" && address ? address.port : port;
+    setupWebSocket();
+    console.log(`🚀 Server ready at http://localhost:${actualPort}/graphql`);
+    console.log(`🔌 WebSocket endpoint at ws://localhost:${actualPort}/graphql`);
+  });
+};
 
 const server = new ApolloServer({
   schema,
@@ -437,35 +322,25 @@ app.use(express.json());
 
 app.get("/", (_, res) => res.redirect("/graphql"));
 
+app.use("/graphql", (req, res, next) => {
+  if (req.headers.upgrade === "websocket") {
+    console.log("🔥 GraphQL upgrade request received", {
+      method: req.method,
+      url: req.url,
+      upgrade: req.headers.upgrade,
+      connection: req.headers.connection,
+      protocol: req.headers["sec-websocket-protocol"],
+    });
+  }
+
+  next();
+});
+
 app.use(
   "/graphql",
   expressMiddleware(server, {
-    context: async ({ req }) => {
-      const authHeader = req.headers.authorization || "";
-
-      let user = null;
-
-      if (authHeader.startsWith("Bearer ")) {
-        const token = authHeader.substring(7);
-
-        try {
-          user = jwt.verify(token, JWT_SECRET);
-          console.log("Decoded User:", user);
-        } catch (err) {
-          console.log("JWT Error:", err.message);
-        }
-      }
-
-      return {
-        authorLoader: createAuthorLoader(),
-        user,
-      };
-    },
+    context: async ({ req }) => buildContext({ req }),
   })
 );
 
-const PORT = process.env.PORT || 5000;
-
-httpServer.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server ready at http://localhost:${PORT}/graphql`);
-});
+startServer();
