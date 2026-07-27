@@ -8,7 +8,7 @@ import { expressMiddleware } from "@as-integrations/express5";
 import createAuthorLoader from "./loaders/authorLoader.js";
 import jwt from "jsonwebtoken";
 import DateTimeScalar from "./scalars/dateTime.js";
-import { PubSub } from "graphql-subscriptions";
+import pubsub from "./pubsub/pubsub.js";
 import { WebSocketServer } from "ws";
 import { useServer } from "graphql-ws/use/ws";
 import { makeExecutableSchema } from "@graphql-tools/schema";
@@ -18,9 +18,10 @@ import authors from "./data/authors.js";
 import movies from "./data/movies.js";
 import users from "./data/users.js";
 import typeDefs from "./schema/typeDefs.js";
+import requireAdmin from "./auth/requireAdmin.js";
 
 const JWT_SECRET = "mySuperSecretKey";
-const pubsub = new PubSub();
+
 
 
 function validateTitle(title) {
@@ -30,15 +31,7 @@ function validateTitle(title) {
 }
 
 
-function requireAdmin(context) {
-  if (!context.user) {
-    throw new Error("Not authenticated");
-  }
 
-  if (context.user.role !== "ADMIN") {
-    throw new Error("Access denied");
-  }
-}
 
 function buildContext({ req, connectionParams } = {}) {
   const authHeader =
