@@ -1,7 +1,6 @@
 // Paste your Apollo Server GraphQL code here.
-import { ApolloServerPluginLandingPageLocalDefault }
-  from "@apollo/server/plugin/landingPage/default";
-import { ApolloServer } from "@apollo/server";
+
+import { createApolloServer } from "./server/createApolloServer.js";
 import express from "express";
 import http from "http";
 import { expressMiddleware } from "@as-integrations/express5";
@@ -10,7 +9,7 @@ import resolvers from "./resolvers/index.js";
 import pubsub from "./pubsub/pubsub.js";
 
 import { makeExecutableSchema } from "@graphql-tools/schema";
-import { ApolloServerPluginDrainHttpServer } from "@apollo/server/plugin/drainHttpServer";
+
 import books from "./data/books.js";
 import movies from "./data/movies.js";
 import typeDefs from "./schema/typeDefs.js";
@@ -65,28 +64,14 @@ const startServer = (attemptIndex = 0) => {
   });
 };
 
-const server = new ApolloServer({
+
+
+const server = createApolloServer({
   schema,
-  plugins: [
-    ApolloServerPluginDrainHttpServer({
-      httpServer,
-    }),
-
-    ApolloServerPluginLandingPageLocalDefault({
-      embed: true,
-    }),
-
-    {
-      async serverWillStart() {
-        return {
-          async drainServer() {
-            await serverCleanup.dispose();
-          },
-        };
-      },
-    },
-  ],
+  httpServer,
+  getServerCleanup: () => serverCleanup,
 });
+
 async function main() {
   await server.start();
 
