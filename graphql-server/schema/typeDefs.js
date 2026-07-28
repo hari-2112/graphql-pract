@@ -63,6 +63,7 @@ type Movie implements SearchItem {
 }
 
 type Author {
+  id: ID!
   name: String!
 }
 `;
