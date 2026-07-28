@@ -11,6 +11,7 @@ import books from "./data/books.js";
 import movies from "./data/movies.js";
 import { setupWebSocket } from "./websocket/setupWebSocket.js";
 import { createSchema } from "./schema/createSchema.js";
+import { env } from "./config/env.js";
 
 const schema = createSchema();
 
@@ -18,7 +19,7 @@ const app = express();
 
 const httpServer = http.createServer(app);
 
-const requestedPort = Number(process.env.PORT || 5000);
+const requestedPort = env.PORT;
 const fallbackPorts = [requestedPort, requestedPort + 1, requestedPort + 2, 0];
 let serverCleanup = null;
 

@@ -7,6 +7,14 @@ const Query = {
   currentTime: () => new Date(),
 
   search: () => [...books, ...movies],
+
+  me: (_, __, { user }) => {
+    if (!user) {
+      throw new Error("Not authenticated");
+    }
+
+    return user;
+  },
 };
 
 export default Query;

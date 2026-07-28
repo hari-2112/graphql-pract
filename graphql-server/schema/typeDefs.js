@@ -32,8 +32,8 @@ type Query {
   books: [Book!]!
   currentTime: DateTime!
   search: [SearchItem!]!
+  me: User
 }
-
 input AddBookInput {
   title: String!
   authorId: ID!
