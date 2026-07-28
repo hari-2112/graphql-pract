@@ -7,21 +7,12 @@ import { expressMiddleware } from "@as-integrations/express5";
 import buildContext from "./context/context.js";
 import resolvers from "./resolvers/index.js";
 import pubsub from "./pubsub/pubsub.js";
-
-import { makeExecutableSchema } from "@graphql-tools/schema";
-
 import books from "./data/books.js";
 import movies from "./data/movies.js";
-import typeDefs from "./schema/typeDefs.js";
 import { setupWebSocket } from "./websocket/setupWebSocket.js";
+import { createSchema } from "./schema/createSchema.js";
 
-
-
-
-const schema = makeExecutableSchema({
-  typeDefs,
-  resolvers,
-});
+const schema = createSchema();
 
 const app = express();
 
