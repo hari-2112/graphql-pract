@@ -1,69 +1,90 @@
-import books from "../data/books.js";
-import authors from "../data/authors.js";
+import prisma from "../prisma/client.js";
 import users from "../data/users.js";
 import pubsub from "../pubsub/pubsub.js";
 import validateTitle from "../utils/validateTitle.js";
 import requireAdmin from "../auth/requireAdmin.js";
 import { generateToken } from "../auth/jwt.js";
 
+
 const Mutation = {
-  addBook: (_, { input }) => {
-    validateTitle(input.title);
+  addBook: async (_, { input }) => {
+  validateTitle(input.title);
 
-    const authorExists = authors.some(
-      (author) => author.id === input.authorId
-    );
+  const author = await prisma.author.findUnique({
+    where: {
+      id: input.authorId,
+    },
+  });
 
-    if (!authorExists) {
-      throw new Error("Author not found");
-    }
+  if (!author) {
+    throw new Error("Author not found");
+  }
 
-    const newBook = {
-      id: String(books.length + 1),
+  const newBook = await prisma.book.create({
+    data: {
       title: input.title,
-      authorId: input.authorId,
-    };
+      author: {
+        connect: {
+          id: input.authorId,
+        },
+      },
+    },
+  });
 
-    books.push(newBook);
+  await pubsub.publish("BOOK_ADDED", {
+    bookAdded: newBook,
+  });
 
-    
+  return newBook;
+},
+  
 
-pubsub.publish("BOOK_ADDED", {
-  bookAdded: newBook,
-});
+  updateBook: async (_, args) => {
+  validateTitle(args.title);
 
-    return newBook;
-  },
+  const existingBook = await prisma.book.findUnique({
+    where: {
+      id: args.id,
+    },
+  });
 
-  updateBook: (_, args) => {
-    const book = books.find((b) => b.id === args.id);
+  if (!existingBook) {
+    throw new Error("Book not found");
+  }
 
-    if (!book) {
-      throw new Error("Book not found");
-    }
+  const updatedBook = await prisma.book.update({
+    where: {
+      id: args.id,
+    },
+    data: {
+      title: args.title,
+    },
+  });
 
-    validateTitle(args.title);
+  return updatedBook;
+},
 
-    book.title = args.title;
+  deleteBook: async (_, args, context) => {
+  requireAdmin(context);
 
-    return book;
-  },
+  const existingBook = await prisma.book.findUnique({
+    where: {
+      id: args.id,
+    },
+  });
 
-  deleteBook: (_, args, context) => {
-    requireAdmin(context);
+  if (!existingBook) {
+    throw new Error("Book not found");
+  }
 
-    const index = books.findIndex((b) => b.id === args.id);
+  const deletedBook = await prisma.book.delete({
+    where: {
+      id: args.id,
+    },
+  });
 
-    if (index === -1) {
-      throw new Error("Book not found");
-    }
-
-    const deletedBook = books[index];
-
-    books.splice(index, 1);
-
-    return deletedBook;
-  },
+  return deletedBook;
+},
 
   login: (_, { username, password }) => {
     const user = users.find(

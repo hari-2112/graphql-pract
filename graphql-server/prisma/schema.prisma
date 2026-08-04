@@ -8,26 +8,26 @@ datasource db {
 }
 
 model Author {
-  id    String @id
+  id    String @id @default(cuid())
   name  String
   books Book[]
 }
 
 model Book {
-  id       String @id
+  id       String @id @default(cuid())
   title    String
   authorId String
   author   Author @relation(fields: [authorId], references: [id])
 }
 
 model Movie {
-  id       String @id
+  id       String @id @default(cuid())
   title    String
   duration Int
 }
 
 model User {
-  id       String @id
+  id       String @id @default(cuid())
   username String @unique
   password String
   role     Role
