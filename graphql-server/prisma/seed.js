@@ -33,30 +33,40 @@ async function main() {
   });
 
   // Movies
-  await prisma.movie.createMany({
-    data: [
-      { id: "201", title: "Inception", duration: 148 },
-      { id: "202", title: "Interstellar", duration: 169 },
-    ],
-  });
+ await prisma.movie.createMany({
+  data: [
+    {
+      id: "201",
+      title: "Inception",
+      duration: 148,
+    },
+    {
+      id: "202",
+      title: "Interstellar",
+      duration: 169,
+    },
+  ],
+  skipDuplicates: true,
+});
 
   // Users
   await prisma.user.createMany({
-    data: [
-      {
-        id: "1",
-        username: "admin",
-        password: "admin123",
-        role: "ADMIN",
-      },
-      {
-        id: "2",
-        username: "hari",
-        password: "hari123",
-        role: "USER",
-      },
-    ],
-  });
+  data: [
+    {
+      id: "1",
+      username: "admin",
+      password: "admin123",
+      role: "ADMIN",
+    },
+    {
+      id: "2",
+      username: "hari",
+      password: "hari123",
+      role: "USER",
+    },
+  ],
+  skipDuplicates: true,
+});
 
   console.log("✅ Database seeded successfully!");
 }

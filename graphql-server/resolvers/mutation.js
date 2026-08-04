@@ -1,5 +1,5 @@
 import prisma from "../prisma/client.js";
-import users from "../data/users.js";
+
 import pubsub from "../pubsub/pubsub.js";
 import validateTitle from "../utils/validateTitle.js";
 import requireAdmin from "../auth/requireAdmin.js";
@@ -86,24 +86,26 @@ const Mutation = {
   return deletedBook;
 },
 
-  login: (_, { username, password }) => {
-    const user = users.find(
-      (u) => u.username === username && u.password === password
-    );
+  login: async (_, { username, password }) => {
+  const user = await prisma.user.findUnique({
+    where: {
+      username,
+    },
+  });
 
-    if (!user) {
-      return {
-        message: "Invalid credentials",
-      };
-    }
-
-    const token = generateToken(user);
-
+  if (!user || user.password !== password) {
     return {
-      token,
-      user,
+      message: "Invalid username or password",
     };
-  },
+  }
+
+  const token = generateToken(user);
+
+  return {
+    token,
+    user,
+  };
+},
 };
 
 export default Mutation;

@@ -13,6 +13,12 @@ type User {
   role: Role!
 }
 
+type Movie {
+  id: ID!
+  title: String!
+  duration: Int!
+}
+  
 type LoginSuccess {
   token: String!
   user: User!
@@ -30,6 +36,7 @@ interface SearchItem {
 
 type Query {
   books: [Book!]!
+  movies: [Movie!]!
   currentTime: DateTime!
   search: [SearchItem!]!
   me: User

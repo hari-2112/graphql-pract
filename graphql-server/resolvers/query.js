@@ -1,6 +1,5 @@
-import prisma from "../lib/prisma.js";
 
-import movies from "../data/movies.js";
+import prisma from "../prisma/client.js";
 
 const Query = {
  books: async () => {
@@ -10,6 +9,10 @@ const Query = {
     },
   });
 },
+
+movies: async () => {
+  return prisma.movie.findMany();
+},
   currentTime: () => new Date(),
 
   search: async () => {
@@ -18,6 +21,8 @@ const Query = {
       author: true,
     },
   });
+
+  const movies = await prisma.movie.findMany();
 
   return [...books, ...movies];
 },

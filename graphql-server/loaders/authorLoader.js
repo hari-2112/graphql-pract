@@ -1,10 +1,20 @@
 import DataLoader from "dataloader";
-import authors from "../data/authors.js";
+import prisma from "../prisma/client.js";
 
 export default function createAuthorLoader() {
   return new DataLoader(async (authorIds) => {
-    return authorIds.map((id) =>
-      authors.find((author) => author.id === id)
+    const authors = await prisma.author.findMany({
+      where: {
+        id: {
+          in: [...authorIds],
+        },
+      },
+    });
+
+    const authorMap = new Map(
+      authors.map((author) => [author.id, author])
     );
+
+    return authorIds.map((id) => authorMap.get(id) || null);
   });
 }
