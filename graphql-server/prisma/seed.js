@@ -1,5 +1,6 @@
 
 import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcrypt";
 
 const prisma = new PrismaClient();
 
@@ -11,6 +12,8 @@ async function main() {
   await prisma.author.deleteMany();
   await prisma.movie.deleteMany();
   await prisma.user.deleteMany();
+
+  
 
   // Authors
   await prisma.author.createMany({
@@ -49,19 +52,22 @@ async function main() {
   skipDuplicates: true,
 });
 
-  // Users
-  await prisma.user.createMany({
+  const adminPassword = await bcrypt.hash("admin123", 10);
+  const hariPassword = await bcrypt.hash("hari123", 10);
+
+ // Users
+await prisma.user.createMany({
   data: [
     {
       id: "1",
       username: "admin",
-      password: "admin123",
+      password: adminPassword,
       role: "ADMIN",
     },
     {
       id: "2",
       username: "hari",
-      password: "hari123",
+      password: hariPassword,
       role: "USER",
     },
   ],

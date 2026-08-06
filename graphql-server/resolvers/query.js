@@ -27,8 +27,8 @@ movies: async () => {
   return [...books, ...movies];
 },
 
- me: (_, __, { user }) => {
-  console.log("Resolver user:", user);
+me: (_, __, { user }) => {
+  console.log("Resolver received user:", user);
 
   if (!user) {
     throw new Error("Not authenticated");

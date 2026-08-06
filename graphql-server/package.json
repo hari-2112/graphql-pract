@@ -12,6 +12,7 @@
     "@as-integrations/express5": "^1.1.2",
     "@graphql-tools/schema": "^10.0.38",
     "@prisma/client": "^6.16.2",
+    "bcrypt": "^6.0.0",
     "dataloader": "^2.2.3",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

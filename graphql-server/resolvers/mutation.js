@@ -1,5 +1,5 @@
 import prisma from "../prisma/client.js";
-
+import bcrypt from "bcrypt";
 import pubsub from "../pubsub/pubsub.js";
 import validateTitle from "../utils/validateTitle.js";
 import requireAdmin from "../auth/requireAdmin.js";
@@ -93,11 +93,22 @@ const Mutation = {
     },
   });
 
-  if (!user || user.password !== password) {
-    return {
-      message: "Invalid username or password",
-    };
-  }
+  if (!user) {
+  return {
+    message: "Invalid username or password",
+  };
+}
+
+const isValidPassword = await bcrypt.compare(
+  password,
+  user.password
+);
+
+if (!isValidPassword) {
+  return {
+    message: "Invalid username or password",
+  };
+}
 
   const token = generateToken(user);
 

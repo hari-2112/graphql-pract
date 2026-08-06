@@ -8,7 +8,7 @@ import buildContext from "./context/context.js";
 import resolvers from "./resolvers/index.js";
 import pubsub from "./pubsub/pubsub.js";
 
-import movies from "./data/movies.js";
+
 import { setupWebSocket } from "./websocket/setupWebSocket.js";
 import { createSchema } from "./schema/createSchema.js";
 import { env } from "./config/env.js";

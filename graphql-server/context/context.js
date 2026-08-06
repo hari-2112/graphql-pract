@@ -9,7 +9,7 @@ export default async function buildContext({ req, connectionParams } = {}) {
     req?.headers?.authorization ||
     req?.headers?.Authorization ||
     "";
-
+console.log("Authorization Header:", authHeader);
   let user = null;
 
   if (authHeader.startsWith("Bearer ")) {
@@ -33,7 +33,7 @@ export default async function buildContext({ req, connectionParams } = {}) {
   user = null;
 }
   }
-
+console.log("Returning context user:", user);
   return {
     authorLoader: createAuthorLoader(),
     user,
