@@ -51,6 +51,7 @@ type Mutation {
   updateBook(id: ID!, title: String!): Book!
   deleteBook(id: ID!): Book!
   login(username: String!, password: String!): LoginResult!
+  register(username: String!, password: String!): LoginResult!
 }
 
 type Subscription {

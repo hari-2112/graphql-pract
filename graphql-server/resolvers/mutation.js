@@ -110,8 +110,44 @@ if (!isValidPassword) {
   };
 }
 
+
   const token = generateToken(user);
 
+  return {
+    token,
+    user,
+  };
+},
+
+register: async (_, { username, password }) => {
+  // 1. Check if username already exists
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      username,
+    },
+  });
+
+  if (existingUser) {
+    return {
+      message: "Username already exists",
+    };
+  }
+
+  // 2. Hash the password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // 3. Create the user
+  const user = await prisma.user.create({
+    data: {
+      username,
+      password: hashedPassword,
+    },
+  });
+
+  // 4. Generate JWT
+  const token = generateToken(user);
+
+  // 5. Return the same shape as login
   return {
     token,
     user,
