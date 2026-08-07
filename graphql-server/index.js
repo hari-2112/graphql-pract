@@ -8,7 +8,7 @@ import buildContext from "./context/context.js";
 import resolvers from "./resolvers/index.js";
 import pubsub from "./pubsub/pubsub.js";
 
-
+import { ApolloServer } from "@apollo/server";
 import { setupWebSocket } from "./websocket/setupWebSocket.js";
 import { createSchema } from "./schema/createSchema.js";
 import { env } from "./config/env.js";
@@ -73,12 +73,16 @@ const startServer = (attemptIndex = 0) => {
 
 
 
-const server = createApolloServer({
+const server = new ApolloServer({
   schema,
-  httpServer,
-  getServerCleanup: () => serverCleanup,
-});
 
+  formatError: (formattedError) => {
+    return {
+      message: formattedError.message,
+      code: formattedError.extensions?.code,
+    };
+  },
+});
 async function main() {
   await server.start();
 

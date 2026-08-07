@@ -1,9 +1,11 @@
+import { unauthenticated, forbidden } from "../utils/errors.js";
+
 export default function requireAdmin(context) {
   if (!context.user) {
-    throw new Error("Not authenticated");
+    unauthenticated();
   }
 
   if (context.user.role !== "ADMIN") {
-    throw new Error("Access denied");
+    forbidden("Admin access required");
   }
 }

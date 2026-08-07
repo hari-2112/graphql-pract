@@ -4,6 +4,12 @@ import pubsub from "../pubsub/pubsub.js";
 import validateTitle from "../utils/validateTitle.js";
 import requireAdmin from "../auth/requireAdmin.js";
 import { generateToken } from "../auth/jwt.js";
+import { registerSchema, loginSchema } from "../validation/authValidation.js";
+
+import {
+  badUserInput,
+  notFound,
+} from "../utils/errors.js";
 
 
 const Mutation = {
@@ -17,7 +23,7 @@ const Mutation = {
   });
 
   if (!author) {
-    throw new Error("Author not found");
+    notFound("Author not found");
   }
 
   const newBook = await prisma.book.create({
@@ -49,7 +55,7 @@ const Mutation = {
   });
 
   if (!existingBook) {
-    throw new Error("Book not found");
+    notFound("Book not found");
   }
 
   const updatedBook = await prisma.book.update({
@@ -74,7 +80,7 @@ const Mutation = {
   });
 
   if (!existingBook) {
-    throw new Error("Book not found");
+    notFound("Book not found");
   }
 
   const deletedBook = await prisma.book.delete({
@@ -87,29 +93,37 @@ const Mutation = {
 },
 
   login: async (_, { username, password }) => {
-  const user = await prisma.user.findUnique({
-    where: {
+    const result = loginSchema.safeParse({
       username,
-    },
-  });
+      password,
+    });
+
+  if (!result.success) {
+  badUserInput(result.error.issues[0].message);
+}
+
+const user = await prisma.user.findUnique({
+  where: {
+    username,
+  },
+});
 
   if (!user) {
-  return {
-    message: "Invalid username or password",
-  };
-}
+    return {
+      message: "Invalid username or password",
+    };
+  }
 
-const isValidPassword = await bcrypt.compare(
-  password,
-  user.password
-);
+  const isValidPassword = await bcrypt.compare(
+    password,
+    user.password
+  );
 
-if (!isValidPassword) {
-  return {
-    message: "Invalid username or password",
-  };
-}
-
+  if (!isValidPassword) {
+    return {
+      message: "Invalid username or password",
+    };
+  }
 
   const token = generateToken(user);
 
@@ -120,6 +134,15 @@ if (!isValidPassword) {
 },
 
 register: async (_, { username, password }) => {
+
+   const result = registerSchema.safeParse({
+    username,
+    password,
+  });
+
+  if (!result.success) {
+  badUserInput(result.error.issues[0].message);
+}
   // 1. Check if username already exists
   const existingUser = await prisma.user.findUnique({
     where: {
