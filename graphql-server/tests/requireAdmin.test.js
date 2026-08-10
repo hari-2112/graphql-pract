@@ -14,6 +14,20 @@ describe("requireAdmin", () => {
     expect(() => requireAdmin(context)).not.toThrow();
   });
 
+  it("rejects a non-admin user", () => {
+  expect(() =>
+    requireAdmin({
+      id: "user-1",
+      username: "john",
+      role: "USER",
+    })
+  ).toThrow();
+});
+
+  it("rejects when no user is authenticated", () => {
+  expect(() => requireAdmin(null)).toThrow();
+});
+
   it("should reject a USER", () => {
     const context = {
       user: {
