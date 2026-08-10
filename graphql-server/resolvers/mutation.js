@@ -161,11 +161,12 @@ register: async (_, { username, password }) => {
 
   // 3. Create the user
   const user = await prisma.user.create({
-    data: {
-      username,
-      password: hashedPassword,
-    },
-  });
+  data: {
+    username,
+    password: hashedPassword,
+    role: "USER",
+  },
+});
 
   // 4. Generate JWT
   const token = generateToken(user);

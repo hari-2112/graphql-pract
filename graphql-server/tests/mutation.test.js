@@ -181,11 +181,12 @@ it("returns an error for a duplicate username", async () => {
     );
 
     expect(mockPrisma.user.create).toHaveBeenCalledWith({
-      data: {
-        username: "john",
-        password: "hashed-password",
-      },
-    });
+  data: {
+    username: "john",
+    password: "hashed-password",
+    role: "USER",
+  },
+});
 
     expect(generateToken).toHaveBeenCalledWith(result.user);
   });
