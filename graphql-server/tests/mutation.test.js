@@ -251,28 +251,7 @@ it("handles a database error during login", async () => {
   ).rejects.toThrow("Database connection failed");
 });
 
-it("handles a database error when creating a book", async () => {
-  mockPrisma.author.findUnique.mockResolvedValue({
-    id: "author-1",
-  });
 
-  mockPrisma.book.create.mockRejectedValue(
-    new Error("Database connection failed")
-  );
-
-  await expect(
-    Mutation.addBook(
-      null,
-      {
-        input: {
-          title: "Test Book",
-          authorId: "author-1",
-        },
-      },
-      {}
-    )
-  ).rejects.toThrow("Database connection failed");
-});
 
 it("rejects login with an empty password", async () => {
   await expect(
@@ -346,12 +325,20 @@ describe("addBook mutation", () => {
 
     it("should reject an empty book title", async () => {
   await expect(
-    Mutation.addBook(null, {
-      input: {
-        title: "   ",
-        authorId: "author-1",
-      },
-    })
+   Mutation.addBook(
+  null,
+  {
+    input: {
+      title: "   ",
+      authorId: "author-1",
+    },
+  },
+  {
+    user: {
+      role: "ADMIN",
+    },
+  }
+)
   ).rejects.toMatchObject({
     message: "Title cannot be empty",
   });
@@ -361,31 +348,74 @@ describe("addBook mutation", () => {
   expect(pubsub.publish).not.toHaveBeenCalled();
 });
 
+it("handles a database error when creating a book", async () => {
+  mockPrisma.author.findUnique.mockResolvedValue({
+    id: "author-1",
+  });
+
+  mockPrisma.book.create.mockRejectedValue(
+    new Error("Database connection failed")
+  );
+
+  await expect(
+    Mutation.addBook(
+      null,
+      {
+        input: {
+          title: "Test Book",
+          authorId: "author-1",
+        },
+      },
+      {
+        user: {
+          role: "ADMIN",
+        },
+      }
+    )
+  ).rejects.toThrow("Database connection failed");
+});
+
 it("handles a database error when finding the author", async () => {
   mockPrisma.author.findUnique.mockRejectedValue(
     new Error("Database connection failed")
   );
 
   await expect(
-    Mutation.addBook(null, {
+  Mutation.addBook(
+    null,
+    {
       input: {
         title: "Test Book",
         authorId: "author-1",
       },
-    })
-  ).rejects.toThrow("Database connection failed");
+    },
+    {
+      user: {
+        role: "ADMIN",
+      },
+    }
+  )
+).rejects.toThrow("Database connection failed");
 });
 
 it("should reject when author does not exist", async () => {
   mockPrisma.author.findUnique.mockResolvedValue(null);
 
   await expect(
-    Mutation.addBook(null, {
-      input: {
-        title: "Test Book",
-        authorId: "missing-author",
-      },
-    })
+   Mutation.addBook(
+  null,
+  {
+    input: {
+      title: "Test Book",
+      authorId: "missing-author",
+    },
+  },
+  {
+    user: {
+      role: "ADMIN",
+    },
+  }
+)
   ).rejects.toThrow("Author not found");
 
   expect(mockPrisma.book.create).not.toHaveBeenCalled();
@@ -401,20 +431,29 @@ it("should reject when author does not exist", async () => {
       name: "Test Author",
     });
 
-    
-
     mockPrisma.book.create.mockResolvedValue({
       id: "book-1",
       title: "GraphQL Testing",
       authorId: "author-1",
     });
 
-    const result = await Mutation.addBook(null, {
-      input: {
-        title: "GraphQL Testing",
-        authorId: "author-1",
+    const result = await Mutation.addBook(
+      null,
+      {
+        input: {
+          title: "GraphQL Testing",
+          authorId: "author-1",
+        },
       },
-    });
+      {
+        user: {
+          id: "admin-1",
+          username: "admin",
+          role: "ADMIN",
+        },
+      }
+    );
+
 
     expect(result.title).toBe("GraphQL Testing");
 
@@ -448,15 +487,23 @@ describe("updateBook mutation", () => {
 
     mockPrisma.book.update.mockResolvedValue({
       id: "book-1",
-      title: "New Title",
+      title: "Updated Title",
     });
 
-    const result = await Mutation.updateBook(null, {
-      id: "book-1",
-      title: "New Title",
-    });
+    const result = await Mutation.updateBook(
+      null,
+      {
+        id: "book-1",
+        title: "Updated Title",
+      },
+      {
+        user: {
+          role: "ADMIN",
+        },
+      }
+    );
 
-    expect(result.title).toBe("New Title");
+    expect(result.title).toBe("Updated Title");
 
     expect(mockPrisma.book.findUnique).toHaveBeenCalledWith({
       where: {
@@ -469,54 +516,98 @@ describe("updateBook mutation", () => {
         id: "book-1",
       },
       data: {
-        title: "New Title",
+        title: "Updated Title",
       },
     });
   });
-it("handles a database error when updating a book", async () => {
-  mockPrisma.book.findUnique.mockResolvedValue({
-    id: "book-1",
-    title: "Old Title",
+
+  it("handles a database error when updating a book", async () => {
+    mockPrisma.book.findUnique.mockResolvedValue({
+      id: "book-1",
+      title: "Old Title",
+    });
+
+    mockPrisma.book.update.mockRejectedValue(
+      new Error("Database connection failed")
+    );
+
+    await expect(
+      Mutation.updateBook(
+        null,
+        {
+          id: "book-1",
+          title: "Updated Title",
+        },
+        {
+          user: {
+            role: "ADMIN",
+          },
+        }
+      )
+    ).rejects.toThrow("Database connection failed");
   });
 
-  mockPrisma.book.update.mockRejectedValue(
-    new Error("Database connection failed")
-  );
+  it("handles a database error when finding a book", async () => {
+    mockPrisma.book.findUnique.mockRejectedValue(
+      new Error("Database connection failed")
+    );
 
-  await expect(
-    Mutation.updateBook(null, {
-      id: "book-1",
-      title: "Updated Title",
-    })
-  ).rejects.toThrow("Database connection failed");
-});
+    await expect(
+      Mutation.updateBook(
+        null,
+        {
+          id: "book-1",
+          title: "Updated Title",
+        },
+        {
+          user: {
+            role: "ADMIN",
+          },
+        }
+      )
+    ).rejects.toThrow("Database connection failed");
+  });
 
-it("handles a database error when finding a book", async () => {
-  mockPrisma.book.findUnique.mockRejectedValue(
-    new Error("Database connection failed")
-  );
+  it("rejects updating a book that does not exist", async () => {
+    mockPrisma.book.findUnique.mockResolvedValue(null);
 
-  await expect(
-    Mutation.updateBook(null, {
-      id: "book-1",
-      title: "Updated Title",
-    })
-  ).rejects.toThrow("Database connection failed");
-});
-  
-it("rejects updating a book that does not exist", async () => {
-  mockPrisma.book.findUnique.mockResolvedValue(null);
+    await expect(
+      Mutation.updateBook(
+        null,
+        {
+          id: "missing-book",
+          title: "Updated Title",
+        },
+        {
+          user: {
+            role: "ADMIN",
+          },
+        }
+      )
+    ).rejects.toThrow("Book not found");
 
-  await expect(
-    Mutation.updateBook(null, {
-      id: "missing-book",
-      title: "Updated Title",
-    })
-  ).rejects.toThrow("Book not found");
+    expect(mockPrisma.book.update).not.toHaveBeenCalled();
+  });
 
-  expect(mockPrisma.book.update).not.toHaveBeenCalled();
-});
+  it("should reject updating a book with an empty title", async () => {
+    await expect(
+      Mutation.updateBook(
+        null,
+        {
+          id: "book-1",
+          title: "   ",
+        },
+        {
+          user: {
+            role: "ADMIN",
+          },
+        }
+      )
+    ).rejects.toThrow("Title cannot be empty");
 
+    expect(mockPrisma.book.findUnique).not.toHaveBeenCalled();
+    expect(mockPrisma.book.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("deleteBook mutation", () => {
@@ -549,8 +640,9 @@ describe("deleteBook mutation", () => {
         }
       )
     ).rejects.toThrow("Database connection failed");
-  });
-it("rejects deleting a book that does not exist", async () => {
+    });
+
+    it("rejects deleting a book that does not exist", async () => {
   mockPrisma.book.findUnique.mockResolvedValue(null);
 
   await expect(
@@ -570,7 +662,7 @@ it("rejects deleting a book that does not exist", async () => {
   ).rejects.toThrow("Book not found");
 
   expect(mockPrisma.book.delete).not.toHaveBeenCalled();
-});
+  });
 
 it("should delete a book successfully", async () => {
   const deletedBook = {
@@ -608,9 +700,9 @@ it("should delete a book successfully", async () => {
       id: "book-1",
     },
   });
-});
+  });
 
-it("rejects a non-admin user from deleting a book", async () => {
+  it("rejects a non-admin user from deleting a book", async () => {
   await expect(
     Mutation.deleteBook(
       null,
@@ -629,9 +721,9 @@ it("rejects a non-admin user from deleting a book", async () => {
 
   expect(mockPrisma.book.findUnique).not.toHaveBeenCalled();
   expect(mockPrisma.book.delete).not.toHaveBeenCalled();
-});
+  });
 
-it("rejects unauthenticated users from deleting a book", async () => {
+  it("rejects unauthenticated users from deleting a book", async () => {
   await expect(
     Mutation.deleteBook(
       null,
@@ -646,5 +738,5 @@ it("rejects unauthenticated users from deleting a book", async () => {
 
   expect(mockPrisma.book.findUnique).not.toHaveBeenCalled();
   expect(mockPrisma.book.delete).not.toHaveBeenCalled();
-});
+  });
 });
