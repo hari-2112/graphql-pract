@@ -85,7 +85,17 @@ describe("GraphQL Mutation Integration", () => {
           }
         }
       `,
-    });
+    },
+  {
+    contextValue: {
+      user: {
+        id: "admin-1",
+        username: "admin",
+        role: "ADMIN",
+      },
+    },
+  },
+);
 
     expect(response.body.kind).toBe("single");
     expect(response.body.singleResult.errors).toBeUndefined();
@@ -374,7 +384,17 @@ it("returns an error when the user does not exist", async () => {
         }
       }
     `,
-  });
+   },
+  {
+    contextValue: {
+      user: {
+        id: "admin-1",
+        username: "admin",
+        role: "ADMIN",
+      },
+    },
+  },
+);
 
   expect(response.body.kind).toBe("single");
 
@@ -415,7 +435,8 @@ it("returns an error when the user does not exist", async () => {
   mockPrisma.book.findUnique.mockResolvedValue(existingBook);
   mockPrisma.book.update.mockResolvedValue(updatedBook);
 
-  const response = await server.executeOperation({
+  const response = await server.executeOperation(
+  {
     query: `
       mutation {
         updateBook(
@@ -427,7 +448,17 @@ it("returns an error when the user does not exist", async () => {
         }
       }
     `,
-  });
+  },
+  {
+    contextValue: {
+      user: {
+        id: "admin-1",
+        username: "admin",
+        role: "ADMIN",
+      },
+    },
+  },
+);
 
   expect(response.body.kind).toBe("single");
 
@@ -456,6 +487,49 @@ it("returns an error when the user does not exist", async () => {
   });
 });
 
+it("rejects a non-admin user from updating a book", async () => {
+  const response = await server.executeOperation(
+    {
+      query: `
+        mutation {
+          updateBook(
+            id: "book-1"
+            title: "Updated Title"
+          ) {
+            id
+            title
+          }
+        }
+      `,
+    },
+    {
+      contextValue: {
+        user: {
+          id: "user-1",
+          username: "john",
+          role: "USER",
+        },
+      },
+    },
+  );
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeDefined();
+
+  expect(response.body.singleResult.errors[0].message).toBe(
+    "Admin access required",
+  );
+
+  expect(
+    response.body.singleResult.errors[0].extensions.code,
+  ).toBe("FORBIDDEN");
+
+  expect(mockPrisma.book.findUnique).not.toHaveBeenCalled();
+
+  expect(mockPrisma.book.update).not.toHaveBeenCalled();
+});
+
   it("returns an error when the author does not exist", async () => {
     mockPrisma.author.findUnique.mockResolvedValue(null);
 
@@ -473,7 +547,17 @@ it("returns an error when the user does not exist", async () => {
           }
         }
       `,
-    });
+    },
+  {
+    contextValue: {
+      user: {
+        id: "admin-1",
+        username: "admin",
+        role: "ADMIN",
+      },
+    },
+  },
+);
 
     expect(response.body.kind).toBe("single");
 
@@ -487,21 +571,32 @@ it("returns an error when the user does not exist", async () => {
   });
 
   it("returns a validation error for an invalid book title", async () => {
-    const response = await server.executeOperation({
-      query: `
-        mutation {
-          addBook(
-            input: {
-              title: ""
-              authorId: "author-1"
+    const response = await server.executeOperation(
+      {
+        query: `
+          mutation {
+            addBook(
+              input: {
+                title: ""
+                authorId: "author-1"
+              }
+            ) {
+              id
+              title
             }
-          ) {
-            id
-            title
           }
-        }
-      `,
-    });
+        `,
+      },
+      {
+        contextValue: {
+          user: {
+            id: "admin-1",
+            username: "admin",
+            role: "ADMIN",
+          },
+        },
+      },
+    );
 
     expect(response.body.kind).toBe("single");
 
@@ -516,26 +611,80 @@ it("returns an error when the user does not exist", async () => {
     expect(mockPrisma.book.create).not.toHaveBeenCalled();
   });
 
-  
+  it("rejects a non-admin user from adding a book", async () => {
+    const response = await server.executeOperation(
+      {
+        query: `
+          mutation {
+            addBook(
+              input: {
+                title: "The Hobbit"
+                authorId: "author-1"
+              }
+            ) {
+              id
+              title
+            }
+          }
+        `,
+      },
+      {
+        contextValue: {
+          user: {
+            id: "user-1",
+            username: "john",
+            role: "USER",
+          },
+        },
+      },
+    );
 
+    expect(response.body.kind).toBe("single");
+
+    expect(response.body.singleResult.errors).toBeDefined();
+
+    expect(response.body.singleResult.errors[0].message).toBe(
+      "Admin access required",
+    );
+
+    expect(
+      response.body.singleResult.errors[0].extensions.code,
+    ).toBe("FORBIDDEN");
+
+    expect(mockPrisma.author.findUnique).not.toHaveBeenCalled();
+
+    expect(mockPrisma.book.create).not.toHaveBeenCalled();
+
+    expect(mockPubsub.publish).not.toHaveBeenCalled();
+  });
 
   it("returns an error when updating a book that does not exist", async () => {
     mockPrisma.book.findUnique.mockResolvedValue(null);
 
-    const response = await server.executeOperation({
-      query: `
-        mutation {
-          updateBook(
-            id: "missing-book"
-            title: "The Hobbit"
-          ) {
-            id
-            title
-          }
+    const response = await server.executeOperation(
+  {
+    query: `
+      mutation {
+        updateBook(
+          id: "missing-book"
+          title: "The Hobbit"
+        ) {
+          id
+          title
         }
-      `,
-    });
-
+      }
+    `,
+  },
+  {
+    contextValue: {
+      user: {
+        id: "admin-1",
+        username: "admin",
+        role: "ADMIN",
+      },
+    },
+  },
+);
     expect(response.body.kind).toBe("single");
 
     expect(response.body.singleResult.errors).toBeDefined();
@@ -552,6 +701,74 @@ it("returns an error when the user does not exist", async () => {
 
     expect(mockPrisma.book.update).not.toHaveBeenCalled();
   });
+
+  it("rejects an unauthenticated user from adding a book", async () => {
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        addBook(
+          input: {
+            title: "The Hobbit"
+            authorId: "author-1"
+          }
+        ) {
+          id
+          title
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeDefined();
+
+  expect(response.body.singleResult.errors[0].message).toBe(
+    "Authentication required",
+  );
+
+  expect(
+    response.body.singleResult.errors[0].extensions.code,
+  ).toBe("UNAUTHENTICATED");
+
+  expect(mockPrisma.author.findUnique).not.toHaveBeenCalled();
+
+  expect(mockPrisma.book.create).not.toHaveBeenCalled();
+
+  expect(mockPubsub.publish).not.toHaveBeenCalled();
+});
+
+  it("rejects an unauthenticated user from updating a book", async () => {
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        updateBook(
+          id: "book-1"
+          title: "Updated Title"
+        ) {
+          id
+          title
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeDefined();
+
+  expect(response.body.singleResult.errors[0].message).toBe(
+    "Authentication required",
+  );
+
+  expect(
+    response.body.singleResult.errors[0].extensions.code,
+  ).toBe("UNAUTHENTICATED");
+
+  expect(mockPrisma.book.findUnique).not.toHaveBeenCalled();
+
+  expect(mockPrisma.book.update).not.toHaveBeenCalled();
+});
 
 
   it("deletes a book through the GraphQL API as an admin", async () => {
@@ -708,6 +925,41 @@ it("returns an error when the user does not exist", async () => {
     expect(mockPrisma.book.delete).not.toHaveBeenCalled();
   });
 
+  it("rejects an unauthenticated user from deleting a book", async () => {
+  const response = await server.executeOperation(
+    {
+      query: `
+        mutation {
+          deleteBook(id: "book-1") {
+            id
+            title
+          }
+        }
+      `,
+    },
+    {
+      contextValue: {
+        user: null,
+      },
+    },
+  );
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeDefined();
+
+  expect(response.body.singleResult.errors[0].message).toBe(
+    "Authentication required",
+  );
+
+  expect(
+    response.body.singleResult.errors[0].extensions.code,
+  ).toBe("UNAUTHENTICATED");
+
+  expect(mockPrisma.book.findUnique).not.toHaveBeenCalled();
+
+  expect(mockPrisma.book.delete).not.toHaveBeenCalled();
+});
 
   it("returns an error when an admin deletes a book that does not exist", async () => {
     mockPrisma.book.findUnique.mockResolvedValue(null);

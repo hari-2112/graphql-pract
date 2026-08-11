@@ -13,7 +13,9 @@ import {
 
 
 const Mutation = {
-  addBook: async (_, { input }) => {
+  addBook: async (_, { input }, context) => {
+  requireAdmin(context);
+
   validateTitle(input.title);
 
   const author = await prisma.author.findUnique({
@@ -45,7 +47,9 @@ const Mutation = {
 },
   
 
-  updateBook: async (_, args) => {
+  updateBook: async (_, args, context) => {
+  requireAdmin(context);
+
   validateTitle(args.title);
 
   const existingBook = await prisma.book.findUnique({
