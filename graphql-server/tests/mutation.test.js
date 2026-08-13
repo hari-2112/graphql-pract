@@ -521,6 +521,42 @@ describe("updateBook mutation", () => {
     });
   });
 
+  it("rejects unauthenticated users", async () => {
+  await expect(
+    Mutation.updateBook(
+      null,
+      {
+        id: "book-1",
+        title: "Updated Title",
+      },
+      {}
+    )
+  ).rejects.toThrow("Authentication required");
+
+  expect(mockPrisma.book.findUnique).not.toHaveBeenCalled();
+  expect(mockPrisma.book.update).not.toHaveBeenCalled();
+});
+
+it("rejects a non-admin user", async () => {
+  await expect(
+    Mutation.updateBook(
+      null,
+      {
+        id: "book-1",
+        title: "Updated Title",
+      },
+      {
+        user: {
+          role: "USER",
+        },
+      }
+    )
+  ).rejects.toThrow("Admin access required");
+
+  expect(mockPrisma.book.findUnique).not.toHaveBeenCalled();
+  expect(mockPrisma.book.update).not.toHaveBeenCalled();
+});
+
   it("handles a database error when updating a book", async () => {
     mockPrisma.book.findUnique.mockResolvedValue({
       id: "book-1",

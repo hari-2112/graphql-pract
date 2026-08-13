@@ -30,12 +30,12 @@ describe("GraphQL Query Integration", () => {
 
   it("returns books through the GraphQL API", async () => {
     mockPrisma.book.findMany.mockResolvedValue([
-  {
-    id: "1",
-    title: "The Hobbit",
-    authorId: "1",
-  },
-]);
+      {
+        id: "1",
+        title: "The Hobbit",
+        authorId: "1",
+      },
+    ]);
 
     mockPrisma.author.findMany.mockResolvedValue([
       {
@@ -45,51 +45,88 @@ describe("GraphQL Query Integration", () => {
     ]);
 
     const response = await server.executeOperation(
-  {
-    query: `
-      query {
-        books {
-          id
-          title
-          author {
-            id
-            name
+      {
+        query: `
+          query {
+            books {
+              id
+              title
+              author {
+                id
+                name
+              }
+            }
           }
-        }
-      }
-    `,
-  },
-  {
-    contextValue: {
-      authorLoader: createAuthorLoader(),
-      user: null,
-    },
-  },
-);
+        `,
+      },
+      {
+        contextValue: {
+          authorLoader: createAuthorLoader(),
+          user: null,
+        },
+      },
+    );
     expect(response.body.kind).toBe("single");
 
     expect(response.body.singleResult.errors).toBeUndefined();
 
     expect(response.body.singleResult.data).toEqual({
-  books: [
-    {
-      id: "1",
-      title: "The Hobbit",
-      author: {
-        id: "1",
-        name: "J.R.R. Tolkien",
-      },
-    },
-  ],
-});
+      books: [
+        {
+          id: "1",
+          title: "The Hobbit",
+          author: {
+            id: "1",
+            name: "J.R.R. Tolkien",
+          },
+        },
+      ],
+    });
 
     expect(mockPrisma.book.findMany).toHaveBeenCalled();
   });
 
   describe("GraphQL Authentication Integration", () => {
     it("rejects an unauthenticated me query", async () => {
-  const response = await server.executeOperation(
-    {
+      const response = await server.executeOperation(
+        {
+          query: `
+            query {
+              me {
+                id
+                username
+                role
+              }
+            }
+          `,
+        },
+        {
+          contextValue: {
+            user: null,
+          },
+        },
+      );
+
+      expect(response.body.kind).toBe("single");
+
+      expect(response.body.singleResult.errors).toBeDefined();
+
+      expect(response.body.singleResult.errors[0].message).toBe(
+        "Not authenticated",
+      );
+
+      expect(response.body.singleResult.errors[0].extensions.code).toBe(
+        "UNAUTHENTICATED",
+      );
+
+      expect(response.body.singleResult.data).toEqual({
+        me: null,
+      });
+    });
+  
+
+  it("rejects an unauthenticated user from the me query", async () => {
+    const response = await server.executeOperation({
       query: `
         query {
           me {
@@ -99,26 +136,20 @@ describe("GraphQL Query Integration", () => {
           }
         }
       `,
-    },
-    {
-      contextValue: {
-        user: null,
-      },
-    },
-  );
+    });
 
-  expect(response.body.kind).toBe("single");
+    expect(response.body.kind).toBe("single");
 
-  expect(response.body.singleResult.errors).toBeDefined();
+    expect(response.body.singleResult.errors).toBeDefined();
 
-  expect(response.body.singleResult.errors[0].message).toBe(
-    "Not authenticated",
-  );
+    expect(response.body.singleResult.errors[0].message).toBe(
+      "Not authenticated",
+    );
 
-  expect(response.body.singleResult.data).toEqual({
-    me: null,
+    expect(response.body.singleResult.errors[0].extensions.code).toBe(
+      "UNAUTHENTICATED",
+    );
   });
-});
   });
 });
 

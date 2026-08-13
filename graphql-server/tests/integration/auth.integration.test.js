@@ -80,54 +80,76 @@ beforeEach(() => {
     });
   });
 
-  it("returns a validation error for an invalid book title", async () => {
-  const response = await server.executeOperation({
-    query: `
-      mutation {
-        addBook(
-          input: {
-            title: ""
-            authorId: "author-1"
+ it("returns a validation error for an invalid book title", async () => {
+  const response = await server.executeOperation(
+    {
+      query: `
+        mutation {
+          addBook(
+            input: {
+              title: ""
+              authorId: "author-1"
+            }
+          ) {
+            id
+            title
           }
-        ) {
-          id
-          title
         }
-      }
-    `,
-  });
+      `,
+    },
+    {
+      contextValue: {
+        user: {
+          id: "user-1",
+          username: "john",
+          role: "ADMIN",
+        },
+      },
+    },
+  );
 
   expect(response.body.kind).toBe("single");
 
   expect(response.body.singleResult.errors).toBeDefined();
 
   expect(response.body.singleResult.errors[0].message).toBe(
-  "Title cannot be empty",
-);
+    "Title cannot be empty",
+  );
 
   expect(mockPrisma.author.findUnique).not.toHaveBeenCalled();
 
   expect(mockPrisma.book.create).not.toHaveBeenCalled();
 });
 
-  it("returns an error when the author does not exist", async () => {
+ it("returns an error when the author does not exist", async () => {
   mockPrisma.author.findUnique.mockResolvedValue(null);
 
-  const response = await server.executeOperation({
-    query: `
-      mutation {
-        addBook(
-          input: {
-            title: "The Hobbit"
-            authorId: "missing-author"
+  const response = await server.executeOperation(
+    {
+      query: `
+        mutation {
+          addBook(
+            input: {
+              title: "The Hobbit"
+              authorId: "missing-author"
+            }
+          ) {
+            id
+            title
           }
-        ) {
-          id
-          title
         }
-      }
-    `,
-  });
+      `,
+    },
+    {
+      contextValue: {
+        user: {
+          id: "user-1",
+          username: "john",
+          role: "ADMIN",
+        },
+      },
+    },
+  );
 
   expect(response.body.kind).toBe("single");
 
@@ -152,7 +174,7 @@ beforeEach(() => {
   mockPrisma.user.findUnique.mockResolvedValue({
     id: "user-1",
     username: "john",
-    role: "USER",
+    role: "ADMIN",
   });
 
   const context = await buildContext({
@@ -188,7 +210,7 @@ beforeEach(() => {
     me: {
       id: "user-1",
       username: "john",
-      role: "USER",
+      role: "ADMIN",
     },
   });
 

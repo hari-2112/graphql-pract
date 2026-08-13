@@ -1,5 +1,7 @@
 
 import prisma from "../prisma/client.js";
+import { unauthenticated } from "../utils/errors.js";
+import { GraphQLError } from "graphql";
 
 const Query = {
  books: async () => {
@@ -31,8 +33,12 @@ me: (_, __, { user }) => {
   console.log("Resolver received user:", user);
 
   if (!user) {
-    throw new Error("Not authenticated");
-  }
+  throw new GraphQLError("Not authenticated", {
+    extensions: {
+      code: "UNAUTHENTICATED",
+    },
+  });
+}
 
   return user;
 },
