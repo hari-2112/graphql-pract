@@ -53,6 +53,7 @@ type Mutation {
   deleteBook(id: ID!): Book!
   login(username: String!, password: String!): LoginResult!
   register(username: String!, password: String!): LoginResult!
+  refreshToken(refreshToken: String!): LoginResult!
 }
 
 type Subscription {

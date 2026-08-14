@@ -27,13 +27,17 @@ const {
     },
 
     refreshToken: {
-      create: vi.fn(),
-    },
+  create: vi.fn(),
+  findUnique: vi.fn(),
+  update: vi.fn(),
+},
   },
 
   mockRefreshToken: {
-    createRefreshToken: vi.fn(),
-  },
+  createRefreshToken: vi.fn(),
+  findRefreshToken: vi.fn(),
+  revokeRefreshToken: vi.fn(),
+},
 
   mockPubsub: {
     publish: vi.fn(),
@@ -55,7 +59,9 @@ vi.mock("../../prisma/client.js", () => ({
 
 vi.mock("../../auth/refreshTokenService.js", () => ({
   createRefreshToken: mockRefreshToken.createRefreshToken,
-}));
+  findRefreshToken: mockRefreshToken.findRefreshToken,
+  revokeRefreshToken: mockRefreshToken.revokeRefreshToken,
+}));;
 
 vi.mock("../../pubsub/pubsub.js", () => ({
   default: mockPubsub,
@@ -1042,6 +1048,251 @@ it("rejects a non-admin user from updating a book", async () => {
     expect(mockPrisma.book.delete).not.toHaveBeenCalled();
   });
 
+
+
+it("refreshes an access token and rotates the refresh token successfully", async () => {
+  const storedToken = {
+    id: "refresh-1",
+    token: "hashed-refresh-token",
+    userId: "user-1",
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    revokedAt: null,
+  };
+
+  const user = {
+    id: "user-1",
+    username: "john",
+    role: "USER",
+  };
+
+ mockRefreshToken.findRefreshToken.mockResolvedValue(storedToken);
+mockPrisma.user.findUnique.mockResolvedValue(user);
+
+  mockJwt.generateToken.mockReturnValue("new-access-token");
+
+  mockRefreshToken.createRefreshToken.mockResolvedValue(
+    "new-refresh-token",
+  );
+
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        refreshToken(refreshToken: "old-refresh-token") {
+          ... on LoginSuccess {
+            token
+            refreshToken
+            user {
+              id
+              username
+              role
+            }
+          }
+          ... on AuthError {
+            message
+          }
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeUndefined();
+
+  expect(
+    response.body.singleResult.data.refreshToken,
+  ).toEqual({
+    token: "new-access-token",
+    refreshToken: "new-refresh-token",
+    user,
+  });
+
+expect(mockRefreshToken.findRefreshToken).toHaveBeenCalledWith(
+  "old-refresh-token",
+);
+  expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+    where: {
+      id: "user-1",
+    },
+  });
+
+  expect(mockRefreshToken.createRefreshToken).toHaveBeenCalledWith(
+    "user-1",
+  );
+
+  expect(mockJwt.generateToken).toHaveBeenCalledWith(user);
 });
 
+it("returns an error for an invalid refresh token", async () => {
+  mockRefreshToken.findRefreshToken.mockResolvedValue(null);
 
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        refreshToken(refreshToken: "invalid-refresh-token") {
+          ... on LoginSuccess {
+            token
+          }
+          ... on AuthError {
+            message
+          }
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeUndefined();
+
+  expect(
+    response.body.singleResult.data.refreshToken,
+  ).toEqual({
+    message: "Invalid refresh token",
+  });
+
+  expect(mockRefreshToken.findRefreshToken).toHaveBeenCalledWith(
+    "invalid-refresh-token",
+  );
+
+  expect(mockRefreshToken.revokeRefreshToken).not.toHaveBeenCalled();
+  expect(mockRefreshToken.createRefreshToken).not.toHaveBeenCalled();
+});
+
+it("returns an error when the refresh token has been revoked", async () => {
+  mockRefreshToken.findRefreshToken.mockResolvedValue({
+    id: "refresh-1",
+    token: "hashed-refresh-token",
+    userId: "user-1",
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    revokedAt: new Date(),
+  });
+
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        refreshToken(refreshToken: "revoked-refresh-token") {
+          ... on LoginSuccess {
+            token
+          }
+          ... on AuthError {
+            message
+          }
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeUndefined();
+
+  expect(
+    response.body.singleResult.data.refreshToken,
+  ).toEqual({
+    message: "Refresh token has been revoked",
+  });
+
+  expect(mockRefreshToken.findRefreshToken).toHaveBeenCalledWith(
+    "revoked-refresh-token",
+  );
+
+  expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+  expect(mockRefreshToken.revokeRefreshToken).not.toHaveBeenCalled();
+  expect(mockRefreshToken.createRefreshToken).not.toHaveBeenCalled();
+});
+
+it("returns an error when the refresh token has expired", async () => {
+  mockRefreshToken.findRefreshToken.mockResolvedValue({
+    id: "refresh-1",
+    token: "hashed-refresh-token",
+    userId: "user-1",
+    expiresAt: new Date(Date.now() - 60 * 60 * 1000),
+    revokedAt: null,
+  });
+
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        refreshToken(refreshToken: "expired-refresh-token") {
+          ... on LoginSuccess {
+            token
+          }
+          ... on AuthError {
+            message
+          }
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeUndefined();
+
+  expect(
+    response.body.singleResult.data.refreshToken,
+  ).toEqual({
+    message: "Refresh token has expired",
+  });
+
+  expect(mockRefreshToken.findRefreshToken).toHaveBeenCalledWith(
+    "expired-refresh-token",
+  );
+
+  expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
+  expect(mockRefreshToken.revokeRefreshToken).not.toHaveBeenCalled();
+  expect(mockRefreshToken.createRefreshToken).not.toHaveBeenCalled();
+});
+
+it("returns an error when the refresh token user no longer exists", async () => {
+  mockRefreshToken.findRefreshToken.mockResolvedValue({
+    id: "refresh-1",
+    token: "hashed-refresh-token",
+    userId: "deleted-user",
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+    revokedAt: null,
+  });
+
+  mockPrisma.user.findUnique.mockResolvedValue(null);
+
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        refreshToken(refreshToken: "valid-refresh-token") {
+          ... on LoginSuccess {
+            token
+          }
+          ... on AuthError {
+            message
+          }
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeUndefined();
+
+  expect(
+    response.body.singleResult.data.refreshToken,
+  ).toEqual({
+    message: "User not found",
+  });
+
+  expect(mockRefreshToken.findRefreshToken).toHaveBeenCalledWith(
+    "valid-refresh-token",
+  );
+
+  expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
+    where: {
+      id: "deleted-user",
+    },
+  });
+
+  expect(mockRefreshToken.revokeRefreshToken).not.toHaveBeenCalled();
+  expect(mockRefreshToken.createRefreshToken).not.toHaveBeenCalled();
+});
+
+});

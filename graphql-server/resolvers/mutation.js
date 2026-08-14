@@ -5,7 +5,11 @@ import validateTitle from "../utils/validateTitle.js";
 import requireAdmin from "../auth/requireAdmin.js";
 import { generateToken } from "../auth/jwt.js";
 import { registerSchema, loginSchema } from "../validation/authValidation.js";
-import { createRefreshToken } from "../auth/refreshTokenService.js";
+import {
+  createRefreshToken,
+  findRefreshToken,
+  revokeRefreshToken,
+} from "../auth/refreshTokenService.js";
 
 import {
   badUserInput,
@@ -185,6 +189,53 @@ return {
   user,
 };
 },
+
+refreshToken: async (_, { refreshToken }) => {
+  const storedToken = await findRefreshToken(refreshToken);
+
+  if (!storedToken) {
+    return {
+      message: "Invalid refresh token",
+    };
+  }
+
+  if (storedToken.revokedAt) {
+    return {
+      message: "Refresh token has been revoked",
+    };
+  }
+
+  if (storedToken.expiresAt <= new Date()) {
+    return {
+      message: "Refresh token has expired",
+    };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: storedToken.userId,
+    },
+  });
+
+  if (!user) {
+    return {
+      message: "User not found",
+    };
+  }
+
+  // Rotate the refresh token
+  await revokeRefreshToken(refreshToken);
+
+  const token = generateToken(user);
+  const newRefreshToken = await createRefreshToken(user.id);
+
+  return {
+    token,
+    refreshToken: newRefreshToken,
+    user,
+  };
+},
+
 };
 
 export default Mutation;
