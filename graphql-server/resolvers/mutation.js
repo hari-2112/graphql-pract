@@ -5,6 +5,7 @@ import validateTitle from "../utils/validateTitle.js";
 import requireAdmin from "../auth/requireAdmin.js";
 import { generateToken } from "../auth/jwt.js";
 import { registerSchema, loginSchema } from "../validation/authValidation.js";
+import { createRefreshToken } from "../auth/refreshTokenService.js";
 
 import {
   badUserInput,
@@ -130,11 +131,13 @@ const user = await prisma.user.findUnique({
   }
 
   const token = generateToken(user);
+const refreshToken = await createRefreshToken(user.id);
 
-  return {
-    token,
-    user,
-  };
+return {
+  token,
+  refreshToken,
+  user,
+};
 },
 
 register: async (_, { username, password }) => {
@@ -173,13 +176,14 @@ register: async (_, { username, password }) => {
 });
 
   // 4. Generate JWT
-  const token = generateToken(user);
+ const token = generateToken(user);
+const refreshToken = await createRefreshToken(user.id);
 
-  // 5. Return the same shape as login
-  return {
-    token,
-    user,
-  };
+return {
+  token,
+  refreshToken,
+  user,
+};
 },
 };
 

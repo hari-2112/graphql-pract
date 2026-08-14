@@ -2,10 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ApolloServer } from "@apollo/server";
 import { createSchema } from "../../schema/createSchema.js";
 
-const { mockPrisma, mockBcrypt, mockJwt } = vi.hoisted(() => ({
+const {
+  mockPrisma,
+  mockBcrypt,
+  mockJwt,
+  mockRefreshToken,
+} = vi.hoisted(() => ({
   mockPrisma: {
     user: {
       findUnique: vi.fn(),
+    },
+
+    refreshToken: {
+      create: vi.fn(),
     },
   },
 
@@ -16,6 +25,14 @@ const { mockPrisma, mockBcrypt, mockJwt } = vi.hoisted(() => ({
   mockJwt: {
     generateToken: vi.fn(),
   },
+
+  mockRefreshToken: {
+    createRefreshToken: vi.fn(),
+  },
+}));
+
+vi.mock("../../auth/refreshTokenService.js", () => ({
+  createRefreshToken: mockRefreshToken.createRefreshToken,
 }));
 
 vi.mock("../../prisma/client.js", () => ({
@@ -54,6 +71,10 @@ describe("GraphQL Login Integration", () => {
     mockBcrypt.compare.mockResolvedValue(true);
 
     mockJwt.generateToken.mockReturnValue("test-jwt-token");
+
+    mockRefreshToken.createRefreshToken.mockResolvedValue(
+  "test-refresh-token",
+);
 
     const response = await server.executeOperation({
       query: `

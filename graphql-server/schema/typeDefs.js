@@ -21,6 +21,7 @@ type Movie {
   
 type LoginSuccess {
   token: String!
+  refreshToken: String!
   user: User!
 }
 

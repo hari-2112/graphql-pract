@@ -2,21 +2,37 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ApolloServer } from "@apollo/server";
 import { createSchema } from "../../schema/createSchema.js";
 
-const { mockPrisma, mockPubsub, mockBcrypt, mockJwt } = vi.hoisted(() => ({
+const {
+  mockPrisma,
+  mockPubsub,
+  mockBcrypt,
+  mockJwt,
+  mockRefreshToken,
+} = vi.hoisted(() => ({
   mockPrisma: {
     author: {
       findUnique: vi.fn(),
     },
+
     book: {
       create: vi.fn(),
       findUnique: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     },
+
     user: {
-  findUnique: vi.fn(),
-  create: vi.fn(),
-},
+      findUnique: vi.fn(),
+      create: vi.fn(),
+    },
+
+    refreshToken: {
+      create: vi.fn(),
+    },
+  },
+
+  mockRefreshToken: {
+    createRefreshToken: vi.fn(),
   },
 
   mockPubsub: {
@@ -24,9 +40,9 @@ const { mockPrisma, mockPubsub, mockBcrypt, mockJwt } = vi.hoisted(() => ({
   },
 
   mockBcrypt: {
-  compare: vi.fn(),
-  hash: vi.fn(),
-},
+    compare: vi.fn(),
+    hash: vi.fn(),
+  },
 
   mockJwt: {
     generateToken: vi.fn(),
@@ -35,6 +51,10 @@ const { mockPrisma, mockPubsub, mockBcrypt, mockJwt } = vi.hoisted(() => ({
 
 vi.mock("../../prisma/client.js", () => ({
   default: mockPrisma,
+}));
+
+vi.mock("../../auth/refreshTokenService.js", () => ({
+  createRefreshToken: mockRefreshToken.createRefreshToken,
 }));
 
 vi.mock("../../pubsub/pubsub.js", () => ({
@@ -48,6 +68,10 @@ vi.mock("bcrypt", () => ({
 vi.mock("../../auth/jwt.js", () => ({
   generateToken: mockJwt.generateToken,
 }));
+
+
+
+
 describe("GraphQL Mutation Integration", () => {
   let server;
 
@@ -188,6 +212,9 @@ it("registers a new user successfully", async () => {
   });
 
   mockJwt.generateToken.mockReturnValue("register-jwt-token");
+  mockRefreshToken.createRefreshToken.mockResolvedValue(
+  "register-refresh-token",
+);
 
  const response = await server.executeOperation({
   query: `
@@ -197,8 +224,9 @@ it("registers a new user successfully", async () => {
         password: "password123"
       ) {
         ... on LoginSuccess {
-          token
-          user {
+            token
+            refreshToken
+            user {
             id
             username
             role
@@ -215,14 +243,19 @@ it("registers a new user successfully", async () => {
 
   expect(response.body.singleResult.data).toEqual({
     register: {
-      token: "register-jwt-token",
-      user: {
-        id: "user-2",
-        username: "alice",
-        role: "USER",
-      },
-    },
+  token: "register-jwt-token",
+  refreshToken: "register-refresh-token",
+  user: {
+    id: "user-2",
+    username: "alice",
+    role: "USER",
+  },
+},
   });
+
+  expect(mockRefreshToken.createRefreshToken).toHaveBeenCalledWith(
+  "user-2",
+);
 
   expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
     where: {
@@ -276,6 +309,8 @@ it("returns an error when the user does not exist", async () => {
     `,
   });
 
+
+ 
   expect(response.body.kind).toBe("single");
 
   expect(response.body.singleResult.errors).toBeUndefined();
@@ -308,7 +343,9 @@ it("returns an error when the user does not exist", async () => {
   mockPrisma.user.findUnique.mockResolvedValue(user);
   mockBcrypt.compare.mockResolvedValue(true);
   mockJwt.generateToken.mockReturnValue("test-jwt-token");
-
+  mockRefreshToken.createRefreshToken.mockResolvedValue(
+  "test-refresh-token",
+);
   const response = await server.executeOperation({
     query: `
       mutation {
@@ -318,6 +355,7 @@ it("returns an error when the user does not exist", async () => {
         ) {
           ... on LoginSuccess {
             token
+            refreshToken
             user {
               id
               username
@@ -335,13 +373,14 @@ it("returns an error when the user does not exist", async () => {
 
   expect(response.body.singleResult.data).toEqual({
     login: {
-      token: "test-jwt-token",
-      user: {
-        id: "user-1",
-        username: "john",
-        role: "USER",
-      },
-    },
+  token: "test-jwt-token",
+  refreshToken: "test-refresh-token",
+  user: {
+    id: "user-1",
+    username: "john",
+    role: "USER",
+  },
+},
   });
 
   expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({

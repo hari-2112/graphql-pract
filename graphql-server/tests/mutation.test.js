@@ -17,6 +17,10 @@ const { mockPrisma } = vi.hoisted(() => ({
   update: vi.fn(),
   delete: vi.fn(),
 },
+
+refreshToken: {
+  create: vi.fn(),
+},
   },
 }));
 
