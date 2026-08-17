@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { hashRefreshToken } from "../auth/refreshToken.js";
 
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
@@ -46,6 +47,7 @@ describe("Refresh Token Service", () => {
     expect(call.data.userId).toBe("user-123");
     expect(call.data.token).toBeTypeOf("string");
     expect(call.data.token.length).toBe(64);
+    expect(call.data.token).toBe(hashRefreshToken(token));
     expect(call.data.expiresAt).toBeInstanceOf(Date);
   });
 
@@ -67,8 +69,7 @@ describe("Refresh Token Service", () => {
 
     const call = mockPrisma.refreshToken.findUnique.mock.calls[0][0];
 
-    expect(call.where.token).toBeTypeOf("string");
-    expect(call.where.token.length).toBe(64);
+    expect(call.where.token).toBe(hashRefreshToken("raw-refresh-token"));
   });
 
   it("should revoke a refresh token", async () => {
@@ -85,8 +86,9 @@ describe("Refresh Token Service", () => {
 
     const call = mockPrisma.refreshToken.update.mock.calls[0][0];
 
-    expect(call.where.token).toBeTypeOf("string");
-    expect(call.where.token.length).toBe(64);
     expect(call.data.revokedAt).toBeInstanceOf(Date);
+    expect(call.where.token).toBe(
+  hashRefreshToken("raw-refresh-token")
+    );
   });
 });
