@@ -1110,6 +1110,9 @@ mockPrisma.user.findUnique.mockResolvedValue(user);
 expect(mockRefreshToken.findRefreshToken).toHaveBeenCalledWith(
   "old-refresh-token",
 );
+expect(mockRefreshToken.revokeRefreshToken).toHaveBeenCalledWith(
+  "old-refresh-token",
+);
   expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({
     where: {
       id: "user-1",
