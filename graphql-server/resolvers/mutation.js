@@ -9,6 +9,7 @@ import {
   createRefreshToken,
   findRefreshToken,
   revokeRefreshToken,
+  revokeTokenFamily,
 } from "../auth/refreshTokenService.js";
 
 import {
@@ -208,10 +209,12 @@ refreshToken: async (_, { refreshToken }) => {
   }
 
   if (storedToken.revokedAt) {
-    return {
-      message: "Refresh token has been revoked",
-    };
-  }
+  await revokeTokenFamily(storedToken.familyId);
+
+  return {
+    message: "Refresh token has been revoked",
+  };
+}
 
   if (storedToken.expiresAt <= new Date()) {
     return {
@@ -235,7 +238,10 @@ refreshToken: async (_, { refreshToken }) => {
   await revokeRefreshToken(refreshToken);
 
   const token = generateToken(user);
-  const newRefreshToken = await createRefreshToken(user.id);
+  const newRefreshToken = await createRefreshToken(
+  user.id,
+  storedToken.familyId
+);
 
   return {
     token,

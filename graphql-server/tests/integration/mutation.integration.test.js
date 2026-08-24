@@ -33,10 +33,11 @@ const {
 },
   },
 
-  mockRefreshToken: {
+ mockRefreshToken: {
   createRefreshToken: vi.fn(),
   findRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
+  revokeTokenFamily: vi.fn(),
 },
 
   mockPubsub: {
@@ -73,6 +74,13 @@ vi.mock("bcrypt", () => ({
 
 vi.mock("../../auth/jwt.js", () => ({
   generateToken: mockJwt.generateToken,
+}));
+
+vi.mock("../../auth/refreshTokenService.js", () => ({
+  createRefreshToken: mockRefreshToken.createRefreshToken,
+  findRefreshToken: mockRefreshToken.findRefreshToken,
+  revokeRefreshToken: mockRefreshToken.revokeRefreshToken,
+  revokeTokenFamily: mockRefreshToken.revokeTokenFamily,
 }));
 
 
@@ -1055,6 +1063,7 @@ it("refreshes an access token and rotates the refresh token successfully", async
     id: "refresh-1",
     token: "hashed-refresh-token",
     userId: "user-1",
+    familyId: "family-1",
     expiresAt: new Date(Date.now() + 60 * 60 * 1000),
     revokedAt: null,
   };
@@ -1121,6 +1130,7 @@ expect(mockRefreshToken.revokeRefreshToken).toHaveBeenCalledWith(
 
   expect(mockRefreshToken.createRefreshToken).toHaveBeenCalledWith(
     "user-1",
+    "family-1",
   );
 
   expect(mockJwt.generateToken).toHaveBeenCalledWith(user);
@@ -1163,13 +1173,14 @@ it("returns an error for an invalid refresh token", async () => {
 });
 
 it("returns an error when the refresh token has been revoked", async () => {
-  mockRefreshToken.findRefreshToken.mockResolvedValue({
-    id: "refresh-1",
-    token: "hashed-refresh-token",
-    userId: "user-1",
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-    revokedAt: new Date(),
-  });
+ mockRefreshToken.findRefreshToken.mockResolvedValue({
+  id: "refresh-1",
+  token: "hashed-refresh-token",
+  userId: "user-1",
+  familyId: "family-1",
+  expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  revokedAt: new Date(),
+});
 
   const response = await server.executeOperation({
     query: `
@@ -1203,6 +1214,9 @@ it("returns an error when the refresh token has been revoked", async () => {
   expect(mockPrisma.user.findUnique).not.toHaveBeenCalled();
   expect(mockRefreshToken.revokeRefreshToken).not.toHaveBeenCalled();
   expect(mockRefreshToken.createRefreshToken).not.toHaveBeenCalled();
+  expect(mockRefreshToken.revokeTokenFamily).toHaveBeenCalledWith(
+  "family-1",
+);
 });
 
 it("returns an error when the refresh token has expired", async () => {
