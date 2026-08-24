@@ -1298,4 +1298,71 @@ it("returns an error when the refresh token user no longer exists", async () => 
   expect(mockRefreshToken.createRefreshToken).not.toHaveBeenCalled();
 });
 
+it("logs out and revokes the refresh token successfully", async () => {
+  mockRefreshToken.revokeRefreshToken.mockResolvedValue({
+    id: "refresh-1",
+    revokedAt: new Date(),
+  });
+
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        logout(refreshToken: "refresh-token-to-revoke") {
+          success
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeUndefined();
+
+  expect(
+    response.body.singleResult.data.logout,
+  ).toEqual({
+    success: true,
+  });
+
+  expect(mockRefreshToken.revokeRefreshToken).toHaveBeenCalledWith(
+    "refresh-token-to-revoke",
+  );
+
+  expect(mockRefreshToken.revokeRefreshToken).toHaveBeenCalledTimes(1);
+});
+
+it("returns an error when logout fails to revoke the refresh token", async () => {
+  mockRefreshToken.revokeRefreshToken.mockRejectedValue(
+    new Error("Refresh token not found"),
+  );
+
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        logout(refreshToken: "invalid-refresh-token") {
+          success
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeDefined();
+
+  expect(response.body.singleResult.errors[0].message).toBe(
+    "Refresh token not found",
+  );
+
+  expect(
+    response.body.singleResult.data,
+  ).toBeNull();
+
+  expect(mockRefreshToken.revokeRefreshToken).toHaveBeenCalledWith(
+    "invalid-refresh-token",
+  );
+
+  expect(mockRefreshToken.revokeRefreshToken).toHaveBeenCalledTimes(1);
+});
+
 });

@@ -47,6 +47,10 @@ input AddBookInput {
   authorId: ID!
 }
 
+type LogoutSuccess {
+  success: Boolean!
+}
+
 type Mutation {
   addBook(input: AddBookInput!): Book!
   updateBook(id: ID!, title: String!): Book!
@@ -54,6 +58,7 @@ type Mutation {
   login(username: String!, password: String!): LoginResult!
   register(username: String!, password: String!): LoginResult!
   refreshToken(refreshToken: String!): LoginResult!
+  logout(refreshToken: String!): LogoutSuccess!
 }
 
 type Subscription {

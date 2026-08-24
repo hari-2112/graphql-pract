@@ -144,6 +144,14 @@ return {
 };
 },
 
+logout: async (_, { refreshToken }) => {
+  await revokeRefreshToken(refreshToken);
+
+  return {
+    success: true,
+  };
+},
+
 register: async (_, { username, password }) => {
 
    const result = registerSchema.safeParse({
