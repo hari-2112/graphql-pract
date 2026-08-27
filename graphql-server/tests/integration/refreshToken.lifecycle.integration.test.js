@@ -138,12 +138,15 @@ describe("Refresh Token Lifecycle", () => {
     });
 
     // Confirm no additional refresh token was created.
-    const tokens = await prisma.refreshToken.findMany({
-      where: {
-        userId: testUserId,
-      },
-    });
+   // Confirm the entire token family has been revoked.
+const tokens = await prisma.refreshToken.findMany({
+  where: {
+    userId: testUserId,
+  },
+});
 
-    expect(tokens).toHaveLength(2);
+expect(tokens).toHaveLength(2);
+
+expect(tokens.every((token) => token.revokedAt !== null)).toBe(true);
   });
 });
