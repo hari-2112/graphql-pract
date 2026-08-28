@@ -3,6 +3,9 @@ import { ApolloServer } from "@apollo/server";
 import { createSchema } from "../../schema/createSchema.js";
 import prisma from "../../prisma/client.js";
 
+import { createRefreshToken } from "../../auth/refreshTokenService.js";
+import { hashRefreshToken } from "../../auth/refreshToken.js";
+
 describe("Refresh Token Lifecycle", () => {
   let server;
   let testUserId;
@@ -43,9 +46,7 @@ describe("Refresh Token Lifecycle", () => {
 
   it("rejects reuse of a refresh token after successful rotation", async () => {
     // Create the initial refresh token using the real service.
-    const { createRefreshToken } = await import(
-      "../../auth/refreshTokenService.js"
-    );
+    
 
     const oldRefreshToken = await createRefreshToken(testUserId);
 
@@ -149,4 +150,79 @@ expect(tokens).toHaveLength(2);
 
 expect(tokens.every((token) => token.revokedAt !== null)).toBe(true);
   });
+
+  it("allows only one concurrent refresh to consume the same token", async () => {
+  const oldRefreshToken = await createRefreshToken(testUserId);
+
+  const refreshMutation = `
+    mutation {
+      refreshToken(refreshToken: "${oldRefreshToken}") {
+        ... on LoginSuccess {
+          token
+          refreshToken
+        }
+        ... on AuthError {
+          message
+        }
+      }
+    }
+  `;
+
+  const [response1, response2] = await Promise.all([
+    server.executeOperation({
+      query: refreshMutation,
+    }),
+    server.executeOperation({
+      query: refreshMutation,
+    }),
+  ]);
+
+  expect(response1.body.kind).toBe("single");
+  expect(response2.body.kind).toBe("single");
+
+  expect(response1.body.singleResult.errors).toBeUndefined();
+  expect(response2.body.singleResult.errors).toBeUndefined();
+
+  const result1 = response1.body.singleResult.data.refreshToken;
+  const result2 = response2.body.singleResult.data.refreshToken;
+
+  const successfulResults = [result1, result2].filter(
+    (result) => result.token && result.refreshToken,
+  );
+
+  const rejectedResults = [result1, result2].filter(
+    (result) => result.message,
+  );
+
+  expect(successfulResults).toHaveLength(1);
+  expect(rejectedResults).toHaveLength(1);
+
+  expect(rejectedResults[0]).toEqual({
+    message: "Refresh token has been revoked",
+  });
+
+  const tokens = await prisma.refreshToken.findMany({
+    where: {
+      userId: testUserId,
+    },
+  });
+
+  expect(tokens).toHaveLength(2);
+
+  const oldToken = tokens.find(
+    (token) => token.token === hashRefreshToken(oldRefreshToken),
+  );
+
+  const newToken = tokens.find(
+    (token) => token.token !== hashRefreshToken(oldRefreshToken),
+  );
+
+  expect(oldToken).not.toBeUndefined();
+  expect(oldToken.revokedAt).not.toBeNull();
+
+  expect(newToken).not.toBeUndefined();
+  expect(newToken.revokedAt).not.toBeNull();
+  expect(newToken.familyId).toBe(oldToken.familyId);
+});
+
 });

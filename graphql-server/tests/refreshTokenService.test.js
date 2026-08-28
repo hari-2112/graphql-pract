@@ -4,10 +4,11 @@ import { hashRefreshToken } from "../auth/refreshToken.js";
 const { mockPrisma } = vi.hoisted(() => ({
   mockPrisma: {
     refreshToken: {
-      create: vi.fn(),
-      findUnique: vi.fn(),
-      update: vi.fn(),
-    },
+  create: vi.fn(),
+  findUnique: vi.fn(),
+  update: vi.fn(),
+  updateMany: vi.fn(),
+},
   },
 }));
 
@@ -15,11 +16,15 @@ vi.mock("../prisma/client.js", () => ({
   default: mockPrisma,
 }));
 
+
 import {
   createRefreshToken,
   findRefreshToken,
   revokeRefreshToken,
+  consumeRefreshToken,
+  revokeTokenFamily,
 } from "../auth/refreshTokenService.js";
+
 
 describe("Refresh Token Service", () => {
   beforeEach(() => {
@@ -91,4 +96,27 @@ describe("Refresh Token Service", () => {
   hashRefreshToken("raw-refresh-token")
     );
   });
+
+  it("should atomically consume an active refresh token", async () => {
+  mockPrisma.refreshToken.updateMany.mockResolvedValue({
+    count: 1,
+  });
+
+  const result = await consumeRefreshToken("raw-refresh-token");
+
+  expect(result.count).toBe(1);
+
+  expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+
+  const call = mockPrisma.refreshToken.updateMany.mock.calls[0][0];
+
+  expect(call.where.token).toBe(
+    hashRefreshToken("raw-refresh-token")
+  );
+
+  expect(call.where.revokedAt).toBeNull();
+
+  expect(call.data.revokedAt).toBeInstanceOf(Date);
+});
+
 });

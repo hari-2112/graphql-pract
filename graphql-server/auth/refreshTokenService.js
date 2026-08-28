@@ -50,6 +50,20 @@ export async function revokeRefreshToken(rawToken) {
   });
 }
 
+export async function consumeRefreshToken(rawToken) {
+  const hashedToken = hashRefreshToken(rawToken);
+
+  return prisma.refreshToken.updateMany({
+    where: {
+      token: hashedToken,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+}
+
 export async function revokeTokenFamily(familyId) {
   return prisma.refreshToken.updateMany({
     where: {

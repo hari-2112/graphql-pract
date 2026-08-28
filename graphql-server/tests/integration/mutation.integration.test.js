@@ -36,6 +36,7 @@ const {
  mockRefreshToken: {
   createRefreshToken: vi.fn(),
   findRefreshToken: vi.fn(),
+  consumeRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
   revokeTokenFamily: vi.fn(),
 },
@@ -58,11 +59,7 @@ vi.mock("../../prisma/client.js", () => ({
   default: mockPrisma,
 }));
 
-vi.mock("../../auth/refreshTokenService.js", () => ({
-  createRefreshToken: mockRefreshToken.createRefreshToken,
-  findRefreshToken: mockRefreshToken.findRefreshToken,
-  revokeRefreshToken: mockRefreshToken.revokeRefreshToken,
-}));;
+
 
 vi.mock("../../pubsub/pubsub.js", () => ({
   default: mockPubsub,
@@ -79,10 +76,10 @@ vi.mock("../../auth/jwt.js", () => ({
 vi.mock("../../auth/refreshTokenService.js", () => ({
   createRefreshToken: mockRefreshToken.createRefreshToken,
   findRefreshToken: mockRefreshToken.findRefreshToken,
+  consumeRefreshToken: mockRefreshToken.consumeRefreshToken,
   revokeRefreshToken: mockRefreshToken.revokeRefreshToken,
   revokeTokenFamily: mockRefreshToken.revokeTokenFamily,
 }));
-
 
 
 
@@ -1075,6 +1072,10 @@ it("refreshes an access token and rotates the refresh token successfully", async
   };
 
  mockRefreshToken.findRefreshToken.mockResolvedValue(storedToken);
+mockRefreshToken.consumeRefreshToken.mockResolvedValue({
+  count: 1,
+});
+
 mockPrisma.user.findUnique.mockResolvedValue(user);
 
   mockJwt.generateToken.mockReturnValue("new-access-token");
@@ -1119,7 +1120,7 @@ mockPrisma.user.findUnique.mockResolvedValue(user);
 expect(mockRefreshToken.findRefreshToken).toHaveBeenCalledWith(
   "old-refresh-token",
 );
-expect(mockRefreshToken.revokeRefreshToken).toHaveBeenCalledWith(
+expect(mockRefreshToken.consumeRefreshToken).toHaveBeenCalledWith(
   "old-refresh-token",
 );
   expect(mockPrisma.user.findUnique).toHaveBeenCalledWith({

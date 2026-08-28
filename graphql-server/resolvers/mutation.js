@@ -8,6 +8,7 @@ import { registerSchema, loginSchema } from "../validation/authValidation.js";
 import {
   createRefreshToken,
   findRefreshToken,
+  consumeRefreshToken,
   revokeRefreshToken,
   revokeTokenFamily,
 } from "../auth/refreshTokenService.js";
@@ -234,8 +235,16 @@ refreshToken: async (_, { refreshToken }) => {
     };
   }
 
-  // Rotate the refresh token
-  await revokeRefreshToken(refreshToken);
+    // Atomically consume the refresh token.
+  const consumed = await consumeRefreshToken(refreshToken);
+
+  if (consumed.count !== 1) {
+    await revokeTokenFamily(storedToken.familyId);
+
+    return {
+      message: "Refresh token has been revoked",
+    };
+  }
 
   const token = generateToken(user);
   const newRefreshToken = await createRefreshToken(
