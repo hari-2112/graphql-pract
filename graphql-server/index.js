@@ -13,20 +13,7 @@ import { setupWebSocket } from "./websocket/setupWebSocket.js";
 import { createSchema } from "./schema/createSchema.js";
 import { env } from "./config/env.js";
 
-import prisma from "./lib/prisma.js";
-
-async function testPrisma() {
-  const books = await prisma.book.findMany({
-    include: {
-      author: true,
-    },
-  });
-
-  console.log("📚 Books from Prisma:");
-  console.log(books);
-}
-
-testPrisma();
+import prisma from "./prisma/client.js";
 
 const schema = createSchema();
 

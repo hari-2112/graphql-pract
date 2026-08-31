@@ -1,6 +1,6 @@
 import createAuthorLoader from "../loaders/authorLoader.js";
 import { verifyToken } from "../auth/jwt.js";
-import prisma from "../lib/prisma.js";
+import prisma from "../prisma/client.js";
 
 export default async function buildContext({ req, connectionParams } = {}) {
   const authHeader =
@@ -9,34 +9,27 @@ export default async function buildContext({ req, connectionParams } = {}) {
     req?.headers?.authorization ||
     req?.headers?.Authorization ||
     "";
-console.log("Authorization Header:", authHeader);
+
   let user = null;
 
   if (authHeader.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
 
-  try {
-  console.log("Authorization Header:", authHeader);
+    try {
+      const payload = verifyToken(token);
 
-  const payload = verifyToken(token);
-  console.log("JWT Payload:", payload);
-
-  user = await prisma.user.findUnique({
-    where: {
-      id: payload.id,
-    },
-  });
-
-  console.log("User from DB:", user);
-} catch (err) {
-  console.error("Context Error:", err);
-  user = null;
-}
+      user = await prisma.user.findUnique({
+        where: {
+          id: payload.id,
+        },
+      });
+    } catch {
+      user = null;
+    }
   }
-console.log("Returning context user:", user);
+
   return {
     authorLoader: createAuthorLoader(),
     user,
   };
-  
 }

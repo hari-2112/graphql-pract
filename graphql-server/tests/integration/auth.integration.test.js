@@ -28,9 +28,7 @@ const { mockPrisma } = vi.hoisted(() => ({
 vi.mock("../../prisma/client.js", () => ({
   default: mockPrisma,
 }));
-vi.mock("../../lib/prisma.js", () => ({
-  default: mockPrisma,
-}));
+
 
 describe("GraphQL Authentication Integration", () => {
  let server;
