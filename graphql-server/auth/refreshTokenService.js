@@ -75,3 +75,14 @@ export async function revokeTokenFamily(familyId) {
     },
   });
 }
+export async function revokeAllUserSessions(userId) {
+  return prisma.refreshToken.updateMany({
+    where: {
+      userId,
+      revokedAt: null,
+    },
+    data: {
+      revokedAt: new Date(),
+    },
+  });
+}

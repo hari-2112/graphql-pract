@@ -23,6 +23,7 @@ import {
   revokeRefreshToken,
   consumeRefreshToken,
   revokeTokenFamily,
+  revokeAllUserSessions,
 } from "../auth/refreshTokenService.js";
 
 
@@ -119,4 +120,41 @@ describe("Refresh Token Service", () => {
   expect(call.data.revokedAt).toBeInstanceOf(Date);
 });
 
+it("should revoke all active tokens in a token family", async () => {
+  mockPrisma.refreshToken.updateMany.mockResolvedValue({
+    count: 2,
+  });
+
+  const result = await revokeTokenFamily("family-123");
+
+  expect(result.count).toBe(2);
+
+  expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+
+  const call = mockPrisma.refreshToken.updateMany.mock.calls[0][0];
+
+  expect(call.where.familyId).toBe("family-123");
+  expect(call.where.revokedAt).toBeNull();
+  expect(call.data.revokedAt).toBeInstanceOf(Date);
 });
+
+it("should revoke all active sessions for a user", async () => {
+  mockPrisma.refreshToken.updateMany.mockResolvedValue({
+    count: 3,
+  });
+
+  const result = await revokeAllUserSessions("user-123");
+
+  expect(result.count).toBe(3);
+
+  expect(mockPrisma.refreshToken.updateMany).toHaveBeenCalledTimes(1);
+
+  const call = mockPrisma.refreshToken.updateMany.mock.calls[0][0];
+
+  expect(call.where.userId).toBe("user-123");
+  expect(call.where.revokedAt).toBeNull();
+  expect(call.data.revokedAt).toBeInstanceOf(Date);
+});
+
+});
+

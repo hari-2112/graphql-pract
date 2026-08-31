@@ -59,6 +59,7 @@ type Mutation {
   register(username: String!, password: String!): LoginResult!
   refreshToken(refreshToken: String!): LoginResult!
   logout(refreshToken: String!): LogoutSuccess!
+  logoutAllSessions: LogoutSuccess!
 }
 
 type Subscription {

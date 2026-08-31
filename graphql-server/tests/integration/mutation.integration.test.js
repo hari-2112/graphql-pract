@@ -39,6 +39,7 @@ const {
   consumeRefreshToken: vi.fn(),
   revokeRefreshToken: vi.fn(),
   revokeTokenFamily: vi.fn(),
+  revokeAllUserSessions: vi.fn(),
 },
 
   mockPubsub: {
@@ -79,6 +80,8 @@ vi.mock("../../auth/refreshTokenService.js", () => ({
   consumeRefreshToken: mockRefreshToken.consumeRefreshToken,
   revokeRefreshToken: mockRefreshToken.revokeRefreshToken,
   revokeTokenFamily: mockRefreshToken.revokeTokenFamily,
+  revokeAllUserSessions: mockRefreshToken.revokeAllUserSessions,
+
 }));
 
 
@@ -1378,6 +1381,73 @@ it("returns an error when logout fails to revoke the refresh token", async () =>
   );
 
   expect(mockRefreshToken.revokeRefreshToken).toHaveBeenCalledTimes(1);
+});
+
+it("logs out all sessions for the authenticated user", async () => {
+  mockRefreshToken.revokeAllUserSessions.mockResolvedValue({
+    count: 3,
+  });
+
+  const response = await server.executeOperation(
+    {
+      query: `
+        mutation {
+          logoutAllSessions {
+            success
+          }
+        }
+      `,
+    },
+    {
+      contextValue: {
+        user: {
+          id: "user-123",
+          username: "test-user",
+          role: "USER",
+        },
+      },
+    },
+  );
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeUndefined();
+
+  expect(response.body.singleResult.data.logoutAllSessions).toEqual({
+    success: true,
+  });
+
+  expect(
+    mockRefreshToken.revokeAllUserSessions,
+  ).toHaveBeenCalledWith("user-123");
+
+  expect(
+    mockRefreshToken.revokeAllUserSessions,
+  ).toHaveBeenCalledTimes(1);
+});
+
+it("returns false when an unauthenticated user logs out all sessions", async () => {
+  const response = await server.executeOperation({
+    query: `
+      mutation {
+        logoutAllSessions {
+          success
+        }
+      }
+    `,
+  });
+
+  expect(response.body.kind).toBe("single");
+
+  expect(response.body.singleResult.errors).toBeUndefined();
+
+  expect(response.body.singleResult.data.logoutAllSessions).toEqual({
+    success: false,
+  });
+
+  expect(
+    mockRefreshToken.revokeAllUserSessions,
+  ).not.toHaveBeenCalled();
 });
 
 });

@@ -11,6 +11,7 @@ import {
   consumeRefreshToken,
   revokeRefreshToken,
   revokeTokenFamily,
+  revokeAllUserSessions,
 } from "../auth/refreshTokenService.js";
 
 import {
@@ -148,6 +149,20 @@ return {
 
 logout: async (_, { refreshToken }) => {
   await revokeRefreshToken(refreshToken);
+
+  return {
+    success: true,
+  };
+},
+
+logoutAllSessions: async (_, __, context) => {
+  if (!context.user) {
+    return {
+      success: false,
+    };
+  }
+
+  await revokeAllUserSessions(context.user.id);
 
   return {
     success: true,
