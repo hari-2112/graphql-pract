@@ -9,6 +9,7 @@ import { hashRefreshToken } from "../../auth/refreshToken.js";
 describe("Refresh Token Lifecycle", () => {
   let server;
   let testUserId;
+  let secondUserId;
 
   beforeEach(async () => {
     server = new ApolloServer({
@@ -28,21 +29,25 @@ describe("Refresh Token Lifecycle", () => {
     testUserId = user.id;
   });
 
-  afterAll(async () => {
-    await prisma.refreshToken.deleteMany({
-      where: {
-        userId: testUserId,
+ afterAll(async () => {
+  await prisma.refreshToken.deleteMany({
+    where: {
+      userId: {
+        in: [testUserId, secondUserId].filter(Boolean),
       },
-    });
-
-    await prisma.user.delete({
-      where: {
-        id: testUserId,
-      },
-    });
-
-    await prisma.$disconnect();
+    },
   });
+
+  await prisma.user.deleteMany({
+    where: {
+      id: {
+        in: [testUserId, secondUserId].filter(Boolean),
+      },
+    },
+  });
+
+  await prisma.$disconnect();
+});
 
   it("rejects reuse of a refresh token after successful rotation", async () => {
     // Create the initial refresh token using the real service.
@@ -223,6 +228,63 @@ expect(tokens.every((token) => token.revokedAt !== null)).toBe(true);
   expect(newToken).not.toBeUndefined();
   expect(newToken.revokedAt).not.toBeNull();
   expect(newToken.familyId).toBe(oldToken.familyId);
+});
+
+it("revokes only the authenticated user's sessions", async () => {
+  const userAId = testUserId;
+
+  const userB = await prisma.user.create({
+    data: {
+      username: `isolation-b-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2)}`,
+      password: "test-password",
+      role: "USER",
+    },
+  });
+
+  secondUserId = userB.id;
+
+  // Create two sessions for User A.
+  await createRefreshToken(userAId);
+  await createRefreshToken(userAId);
+
+  // Create two sessions for User B.
+  await createRefreshToken(userB.id);
+  await createRefreshToken(userB.id);
+
+  // Revoke all sessions belonging to User A.
+  const { revokeAllUserSessions } = await import(
+    "../../auth/refreshTokenService.js"
+  );
+
+  const result = await revokeAllUserSessions(userAId);
+
+  expect(result.count).toBe(2);
+
+  const userATokens = await prisma.refreshToken.findMany({
+    where: {
+      userId: userAId,
+    },
+  });
+
+  const userBTokens = await prisma.refreshToken.findMany({
+    where: {
+      userId: userB.id,
+    },
+  });
+
+  // Every User A session must be revoked.
+  expect(userATokens).toHaveLength(2);
+  expect(
+    userATokens.every((token) => token.revokedAt !== null),
+  ).toBe(true);
+
+  // Every User B session must remain active.
+  expect(userBTokens).toHaveLength(2);
+  expect(
+    userBTokens.every((token) => token.revokedAt === null),
+  ).toBe(true);
 });
 
 });
